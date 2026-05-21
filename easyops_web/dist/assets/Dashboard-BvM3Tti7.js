@@ -1,0 +1,1 @@
+import{d as e,f as t,i as n,l as r,o as i,t as a}from"./index-kqG-jnVy.js";var o={};function s(a,o){let s=e(`el-card`);return r(),n(s,{header:`平台总览`},{default:t(()=>[...o[0]||=[i(`EasyOps：资产管理、批量执行、容器管理、CI/CD、监控告警、定时任务。`,-1)]]),_:1})}var c=a(o,[[`render`,s]]);export{c as default};
