@@ -1,0 +1,1 @@
+import http from './http';export const listProjects=()=>http.get('/deploy/projects');export const createProject=d=>http.post('/deploy/projects',d);export const runDeploy=id=>http.post(`/deploy/projects/${id}/run`)

@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  mysql:
+    image: docker.m.daocloud.io/library/mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: easyops
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports: ["3306:3306"]
+    volumes: [mysql_data:/var/lib/mysql]
+    restart: always
+  redis:
+    image: docker.m.daocloud.io/library/redis:6
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    restart: always
+  api:
+    build: ./easyops_api
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+    ports: ["8000:8000"]
+    depends_on: [mysql, redis]
+    restart: always
+  celery:
+    build: ./easyops_api
+    command: celery -A tasks.celery_app.celery worker -l INFO
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+    depends_on: [mysql, redis]
+    restart: always
+  web:
+    build: ./easyops_web
+    ports: ["8080:80"]
+    depends_on: [api]
+    restart: always
+  prometheus:
+    image: docker.m.daocloud.io/prom/prometheus:latest
+    volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml]
+    ports: ["9090:9090"]
+  grafana:
+    image: docker.m.daocloud.io/grafana/grafana:latest
+    ports: ["3000:3000"]
+    volumes: [grafana_data:/var/lib/grafana]
+volumes:
+  mysql_data:
+  redis_data:
+  grafana_data:

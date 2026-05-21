@@ -1,0 +1,1 @@
+{"scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview"},"dependencies":{"@vitejs/plugin-vue":"latest","vite":"latest","vue":"latest","vue-router":"latest","element-plus":"latest","axios":"latest"},"devDependencies":{}}
