@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # EasyOps 轻量企业级 DevOps 自动化运维平台
 
 EasyOps 是一个面向中小企业运维团队的私有化 DevOps 自动化运维平台，覆盖服务器资产管理、批量命令执行、容器管理、CI/CD 发布、监控告警、定时任务与数据备份。
@@ -47,3 +48,6 @@ docker compose up -d --build
 - Grafana：http://localhost:3000
 
 默认管理员初始化：登录页点击“初始化管理员”，账号 `admin/admin123`。
+=======
+# devops
+>>>>>>> 4fa32d3cf651d7c9aaf5c15b21ac9b902e432078
