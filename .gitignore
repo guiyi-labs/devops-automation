@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node/Vite
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# 本地数据与日志
+logs/
+*.log
+
+# IDE/系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.swp
