@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt as pyjwt
 from sqlalchemy.orm import Session
 
 from common.redact import register_secret
@@ -18,7 +18,7 @@ WRITE_ROLES = (ROLE_ADMIN, ROLE_OPERATOR)
 
 
 def _decode_username(token: str) -> str:
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    payload = pyjwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     username = payload.get('sub')
     if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='认证失败')
@@ -47,7 +47,7 @@ def get_current_user(
     exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='认证失败')
     try:
         username = _decode_username(token)
-    except JWTError:
+    except pyjwt.InvalidTokenError:
         raise exc
     user = db.query(SysUser).filter(SysUser.username == username).first()
     if not user:

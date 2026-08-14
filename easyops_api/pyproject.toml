@@ -1,0 +1,18 @@
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "alembic/*",
+    "alembic.ini",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# E2 全局初始门禁：不低于 50%；核心安全模块另行单独门禁（CI 中 --cov-fail-under=80）
+fail_under = 50
+
+[tool.coverage.measurement]
+# 统计分支覆盖率
+branch = true

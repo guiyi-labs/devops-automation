@@ -20,6 +20,7 @@ EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查
 |---|---|---|
 | 身份与资产 | 管理员一次性初始化、登录、三角色权限（admin/operator/viewer）、用户管理、服务器资产增删改查 | `api/v1/user.py`、`api/v1/asset.py`、`dependencies.py` |
 | 安全基线 | 全路由鉴权、SSH 凭据加密存储、host key 指纹校验、日志脱敏、审计日志、生产配置校验 | `common/crypto.py`、`common/redact.py`、`services/ssh_service.py`、`config.py` |
+| 测试与运行基线 | Alembic 数据库迁移、pytest 单元测试与覆盖率门禁、CI 依赖审计 / K8s 清单校验 / 链接检查 | `alembic/`、`tests/`、`.github/workflows/ci.yml` |
 | 批量运维 | 批量命令入口（仅传递资产 ID，Worker 内解密凭据）、执行记录、Celery 异步任务 | `api/v1/exec_task.py`、`tasks/exec_tasks.py` |
 | 容器主机 | Docker 容器查询与主机运行状态 | `api/v1/docker_k8s.py`、`services/docker_service.py` |
 | 发布管理 | 部署项目登记与发布执行入口 | `api/v1/deploy.py`、`services/deploy_service.py` |
@@ -112,15 +113,28 @@ Linux 部署、端口规划、组件连接、备份恢复与故障排查见：
 
 ## CI 与本地验证
 
-GitHub Actions 包含后端 Ruff / 语法检查 / pytest、前端依赖安装 / 审计 / 生产构建、
-以及 `docker compose config` 部署校验。
+GitHub Actions 包含：
+
+- 后端：Ruff、语法检查、pytest（65 项）、全局覆盖率门禁（≥ 50%）、核心安全模块
+  覆盖率门禁（`common` / `config` / `dependencies` / `services.ssh_service`，≥ 80%）、
+  `pip-audit` 依赖审计、Alembic SQLite 迁移有效性校验。
+- 前端：依赖安装、`npm audit --omit=dev`、生产构建。
+- 部署：`docker compose config`（含 ports 覆盖）、kubeconform K8s 清单 schema 校验、
+  `.env.example` 存在性与 README / docs 链接检查。
 
 ```bash
-# 后端：语法检查 + 单元测试
+# 后端：语法检查 + 单元测试 + 覆盖率
 cd easyops_api
 python -m compileall -q .
 pip install -r requirements-dev.txt
-pytest -v
+pytest -v                                    # 全量测试
+pytest --cov=. --cov-report=term             # 全局覆盖率（≥ 50%）
+pytest --cov=common --cov=config --cov=dependencies \
+       --cov=services.ssh_service --cov-fail-under=80   # 安全模块覆盖率（≥ 80%）
+pip-audit                                    # 依赖审计
+
+# 数据库迁移（等价于容器启动时的 alembic upgrade head）
+DATABASE_URL=sqlite:///dev.db alembic upgrade head
 
 # 前端构建
 cd ../easyops_web
@@ -129,8 +143,11 @@ npm audit --omit=dev
 npm run build
 ```
 
-后续提升工程证据的优先事项是补充 API 单元测试、Compose 健康检查、真实 Linux 部署演练和
-前端运行截图；在这些证据补齐前，README 不将项目描述为已经完成生产级验证。
+本地验证已通过（2026-08-14）：pytest 65 passed、Ruff 0 错误、全局覆盖率 88%、
+安全模块覆盖率 91%、依赖审计 0 已知漏洞、前端 0 漏洞且构建通过。
+
+后续提升工程证据的优先事项是真实 Linux 部署演练、备份恢复演练和前端运行截图；
+在这些证据补齐前，README 不将项目描述为已经完成生产级验证。
 
 ## 运维边界
 

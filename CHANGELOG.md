@@ -7,6 +7,35 @@
 
 ### Added
 
+- Alembic 迁移（E2）：`alembic/` 初始迁移 `0001_initial_schema`，替代启动时
+  `Base.metadata.create_all`；Compose 中 api/celery 启动前执行 `alembic upgrade head`。
+- pytest-cov 覆盖率门禁：全局初始 ≥ 50%，核心安全模块（`common` / `config` /
+  `dependencies` / `services.ssh_service`）≥ 80%（当前 91%）。
+- 更多测试（E2）：资产/告警/Cron/部署 CRUD 与 404/400/409/422 错误响应、批量执行边界
+  （空资产 / 超 50 台 / 资产缺失 / 重复请求）、Worker 单主机失败隔离、SSH 成功路径 /
+  私钥加载 / 远端命令失败（`RemoteCommandError`）。
+- CI 门禁（E2）：`pip-audit` 依赖审计、Alembic SQLite 迁移有效性校验、kubeconform
+  Kubernetes 清单 schema 检查、README/docs 相对链接检查。
+- 升级运行时依赖修复已知漏洞：fastapi 0.111.0 → 0.141.1（starlette 0.37.2 → 1.6.0，
+  `prometheus-fastapi-instrumentator` 7.0.0 → 8.1.0 以兼容）、python-multipart
+  0.0.9 → 0.0.32、requests 2.32.3 → 2.34.2、paramiko 3.4.0 → 5.0.0（移除已废的
+  DSSKey 支持）。
+- JWT 实现由 `python-jose` 迁移至 `PyJWT==2.13.0`（HS256 用法一致）：消除
+  python-jose 及其 `ecdsa` 传递依赖的审计告警（HSA-2024-232/233、Minerva
+  侧信道无修复版）。
+
+### Changed
+
+- `main.py` 不再在启动时 `create_all`；表结构统一由 Alembic 管理。
+- `services/ssh_service.connect_and_run`：远端命令非 0 退出改为抛
+  `RemoteCommandError`（不再静默返回 status=2），失败路径更可区分。
+
+### Security
+
+- `pip-audit` / `npm audit --omit=dev` 均 0 已知漏洞。
+
+### Added
+
 - `.env.example`：完整环境变量参考，字段名、格式与开发示例；仓库不保存真实凭据。
 - 三角色 RBAC：`admin`（系统管理员）/ `operator`（运维操作员）/ `viewer`（只读用户），
   由 `dependencies.require_write` / `require_admin` 在路由层强制执行。

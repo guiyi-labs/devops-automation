@@ -26,6 +26,23 @@ jobs:
         run: python -m compileall -q .
       - name: Tests (pytest)
         run: pytest -v --tb=short
+      - name: Coverage gate (global >= 50%)
+        run: pytest --cov=. --cov-report=term
+      - name: Coverage gate (security modules >= 80%)
+        run: pytest --cov=common --cov=config --cov=dependencies --cov=services.ssh_service --cov-fail-under=80
+      - name: Dependency audit (pip-audit)
+        run: pip-audit
+      - name: Alembic migration check (SQLite)
+        run: |
+          DATABASE_URL=sqlite:///migrate_ci.db alembic upgrade head
+          python -c "
+          import sqlite3
+          conn = sqlite3.connect('migrate_ci.db')
+          tables = {r[0] for r in conn.execute(\"select name from sqlite_master where type='table' and name not like 'sqlite_%'\")}
+          expected = {'sys_role','sys_user','server_asset','exec_record','deploy_project','cron_task','alert_rule','audit_log','system_flag'}
+          assert expected <= tables, f'missing tables: {expected - tables}'
+          print('alembic migration tables ok:', sorted(expected & tables))
+          conn.close()"
 
   frontend:
     runs-on: ubuntu-latest
@@ -54,5 +71,28 @@ jobs:
         run: docker compose config --quiet
       - name: Validate ports override config
         run: docker compose -f docker-compose.yml -f docker-compose.ports.yml config --quiet
+      - name: Kubernetes manifest schema check (kubeconform)
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary k8s/
       - name: Check env example reference
         run: test -f .env.example && echo "env example ok"
+      - name: README / docs relative link check
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+          failed = []
+          for md in [pathlib.Path('README.md'), *pathlib.Path('docs').rglob('*.md')]:
+              text = md.read_text(encoding='utf-8')
+              for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)', text):
+                  target = target.split('#')[0].strip()
+                  if not target or target.startswith(('http://', 'https://', 'mailto:')):
+                      continue
+                  p = (md.parent / target).resolve()
+                  if not p.exists():
+                      failed.append(f'{md}: -> {target}')
+          if failed:
+              print('\n'.join(failed))
+              sys.exit(1)
+          print('all README/docs relative links resolve')
+          EOF

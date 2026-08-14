@@ -1,4 +1,5 @@
 """E1 验收 6/7/8/9：API 响应无明文凭据、未知 host key 拒绝、指纹不匹配、错误可区分。"""
+import paramiko
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -141,3 +142,66 @@ def test_redact_in_error_messages():
     assert 'password' not in str(err).lower() or True  # 信息本身不含凭据
     from common.redact import redact
     assert redact('password=S3cretX token=abc123') == '[REDACTED] [REDACTED]'
+
+
+# ---------- connect_and_run 成功路径 / 私钥 / 远端命令失败 ----------
+class _FakeChannel:
+    def __init__(self, exit_code):
+        self._exit_code = exit_code
+
+    def recv_exit_status(self):
+        return self._exit_code
+
+
+class _FakeStream:
+    def __init__(self, data: bytes, exit_code: int = 0):
+        self._data = data
+        self.channel = _FakeChannel(exit_code)
+
+    def read(self):
+        return self._data
+
+
+def test_connect_and_run_success_path(monkeypatch):
+    """连接成功、命令成功：返回 stdout 与 status=1。"""
+    from config import settings
+    monkeypatch.setattr(settings, 'SSH_ALLOW_UNVERIFIED_HOST_KEY', True)
+    mock_ssh = MagicMock()
+    mock_ssh.exec_command.return_value = (
+        MagicMock(), _FakeStream(b'hello world'), _FakeStream(b'')
+    )
+    with patch('paramiko.SSHClient', return_value=mock_ssh):
+        result = connect_and_run('h1', 22, 'root', host_key_fingerprint='fp', timeout=2)
+    assert result['status'] == 1
+    assert result['stdout'] == 'hello world'
+    assert result['exit_code'] == 0
+
+
+def test_connect_and_run_raises_remote_command_error(monkeypatch):
+    """远端命令非 0 退出：抛 RemoteCommandError（error_type 可区分）。"""
+    from config import settings
+    monkeypatch.setattr(settings, 'SSH_ALLOW_UNVERIFIED_HOST_KEY', True)
+    mock_ssh = MagicMock()
+    mock_ssh.exec_command.return_value = (
+        MagicMock(), _FakeStream(b'error output', exit_code=1), _FakeStream(b'')
+    )
+    with patch('paramiko.SSHClient', return_value=mock_ssh):
+        with pytest.raises(RemoteCommandError) as exc_info:
+            connect_and_run('h1', 22, 'root', host_key_fingerprint='fp', timeout=2)
+    assert 'exit=1' in str(exc_info.value)
+
+
+def test_load_private_key_with_rsa():
+    """私钥文本可被正确加载（RSA）。"""
+    from services.ssh_service import _load_private_key
+    rsa_key = paramiko.RSAKey.generate(1024)
+    import io
+    buf = io.StringIO()
+    rsa_key.write_private_key(buf)
+    loaded = _load_private_key(buf.getvalue())
+    assert loaded is not None
+
+
+def test_load_private_key_invalid_returns_none():
+    from services.ssh_service import _load_private_key
+    assert _load_private_key('not a valid key') is None
