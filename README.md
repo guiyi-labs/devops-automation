@@ -6,13 +6,13 @@
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-> 面向 Linux 服务器与 Kubernetes 环境的自动化运维平台，覆盖资产、批量任务、容器、发布、告警与定时作业。
+> 面向 Linux 主机的自动化运维平台，覆盖资产、批量任务、容器、发布、告警与定时作业。
 
 ## 项目定位
 
-EasyOps 将日常系统运维中的资产管理、批量操作、容器 / 集群查看、部署任务和监控告警组织到
-同一个控制台。当前以 Docker Compose 单机部署为主要验证路径，同时保留 Kubernetes API 示例和
-Linux 部署运维手册，适合作为系统运维、DevOps 和平台工程方向的实践项目。
+EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查看、部署任务和监控告警组织到
+同一个控制台。当前以 Docker Compose 单机部署为主要验证路径，适合作为系统运维和 DevOps
+方向的实践项目。Kubernetes 只作为 EasyOps 自身的可选部署环境，不作为本项目的管理对象。
 
 ## 已实现能力
 
@@ -20,7 +20,7 @@ Linux 部署运维手册，适合作为系统运维、DevOps 和平台工程方�
 |---|---|---|
 | 身份与资产 | 管理员初始化、登录、用户管理、服务器资产增删改查 | `api/v1/user.py`、`api/v1/asset.py` |
 | 批量运维 | 批量命令入口、执行记录、Celery 异步任务 | `api/v1/exec_task.py`、`tasks/` |
-| 容器与集群 | Docker 容器查询、Kubernetes Pod 查询 | `api/v1/docker_k8s.py`、`services/` |
+| 容器主机 | Docker 容器查询与主机运行状态 | `api/v1/docker_k8s.py`、`services/docker_service.py` |
 | 发布管理 | 部署项目登记与发布执行入口 | `api/v1/deploy.py`、`services/deploy_service.py` |
 | 监控告警 | 告警规则管理、Prometheus 指标暴露、Grafana / Prometheus 组合 | `api/v1/alert.py`、`docker-compose.yml` |
 | 定时作业 | Cron 任务登记与查询，Celery Worker 承载异步执行 | `api/v1/cron_task.py`、`tasks/` |
@@ -36,7 +36,6 @@ flowchart LR
     Redis --> Worker[Celery Worker]
     Worker --> SSH[Linux SSH]
     Worker --> Docker[Docker Engine]
-    Worker --> K8s[Kubernetes API]
     Prom[Prometheus] --> API
     Grafana[Grafana] --> Prom
 ```
@@ -74,11 +73,15 @@ Linux 部署、端口规划、组件连接、备份恢复与故障排查见：
 最低建议配置：2 vCPU、4 GB RAM、20 GB 可用磁盘。小型长期运行环境建议 4 vCPU、8 GB RAM，
 并将 MySQL、Redis、Grafana 数据卷放到独立磁盘或受控备份目录。
 
-## Kubernetes 示例
+## Kubernetes 部署示例
 
 `k8s/easyops-api.yaml` 提供 API 服务的 Kubernetes Deployment / Service 示例。它用于说明
-容器化部署结构，不等同于完整的生产高可用清单；生产部署仍需补充 Secret、Ingress、持久化、
-资源限制、探针、网络策略和滚动升级策略。
+如何把 EasyOps 自身部署到 Kubernetes，不代表 EasyOps 负责管理 Kubernetes 集群或工作负载。
+集群创建与 kubeadm / Ansible 交付见
+[`kubernetes-cluster-bootstrap`](https://github.com/guiyi-labs/kubernetes-cluster-bootstrap)，
+集群运行期的资源、诊断和事故响应见
+[`aiops-platform`](https://github.com/guiyi-labs/aiops-platform)。该清单仍不等同于完整的生产
+高可用清单；生产部署需补充 Secret、Ingress、持久化、资源限制、探针、网络策略和滚动升级策略。
 
 ## CI 与本地验证
 
@@ -99,10 +102,21 @@ npm run build
 
 ## 运维边界
 
-- SSH、Docker Engine 和 Kubernetes API 均需要用户明确配置凭据与网络访问权限。
+- SSH 和 Docker Engine 需要用户明确配置凭据与网络访问权限。
 - 批量命令和资产发现只能作用于获得授权的目标范围。
 - 默认配置仅服务于本地演示，真实部署必须使用环境变量或外部 Secret 管理敏感信息。
 - 真实服务器地址、kubeconfig、令牌和运行日志不得提交到仓库。
+
+## 与相关仓库的边界
+
+| 仓库 | 负责什么 |
+|---|---|
+| [`kubernetes-cluster-bootstrap`](https://github.com/guiyi-labs/kubernetes-cluster-bootstrap) | Day 0/1 集群交付：预检、containerd、kubeadm、节点加入、CNI 和验收 |
+| `devops-automation`（本仓库） | Linux 主机运行期：SSH、服务、进程、磁盘、批量任务、备份和主机监控 |
+| [`aiops-platform`](https://github.com/guiyi-labs/aiops-platform) | Kubernetes 运行期：多集群、工作负载、可观测、诊断、事故响应和受控修复 |
+
+本项目不提供 Pod、Deployment、CRD、多集群或 Kubernetes 事故管理功能；这些能力由
+`aiops-platform` 统一承载。
 
 ## 目录结构
 
