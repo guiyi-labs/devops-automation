@@ -31,6 +31,8 @@ services:
       start_period: 10s
   api:
     build: ./easyops_api
+    # E2：启动前先执行 Alembic 迁移（幂等），再启动 API
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
     environment:
       APP_ENV: ${APP_ENV:-development}
       MYSQL_HOST: mysql
@@ -57,7 +59,8 @@ services:
       start_period: 40s
   celery:
     build: ./easyops_api
-    command: celery -A tasks.celery_app.celery worker -l INFO
+    # E2：Worker 也需表结构，先迁移再启动
+    command: sh -c "alembic upgrade head && celery -A tasks.celery_app.celery worker -l INFO"
     environment:
       APP_ENV: ${APP_ENV:-development}
       MYSQL_HOST: mysql

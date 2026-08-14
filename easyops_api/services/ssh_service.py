@@ -84,8 +84,8 @@ class VerifyHostKeyPolicy(paramiko.MissingHostKeyPolicy):
 
 
 def _load_private_key(private_key_text: str) -> paramiko.PKey | None:
-    """尝试按常见密钥类型加载私钥文本。"""
-    for key_class in (paramiko.Ed25519Key, paramiko.RSAKey, paramiko.ECDSAKey, paramiko.DSSKey):
+    """尝试按常见密钥类型加载私钥文本（DSS 已随 paramiko 5 移除，不再支持）。"""
+    for key_class in (paramiko.Ed25519Key, paramiko.RSAKey, paramiko.ECDSAKey):
         try:
             return key_class.from_private_key(io.StringIO(private_key_text))
         except paramiko.ssh_exception.SSHException:
@@ -133,13 +133,16 @@ def connect_and_run(
         out = stdout.read().decode('utf-8', errors='ignore')
         err = stderr.read().decode('utf-8', errors='ignore')
         exit_code = stdout.channel.recv_exit_status()
-        ssh.close()
+        if exit_code != 0:
+            raise RemoteCommandError(
+                host, f'远端命令执行失败（exit={exit_code}）：{err[:_MAX_OUTPUT_BYTES]}'
+            )
         return {
             'host': host,
             'stdout': out[:_MAX_OUTPUT_BYTES],
             'stderr': err[:_MAX_OUTPUT_BYTES],
             'exit_code': exit_code,
-            'status': 1 if exit_code == 0 else 2,
+            'status': 1,
         }
     except (AuthError, HostKeyError, UnknownHostKeyError, RemoteCommandError):
         raise

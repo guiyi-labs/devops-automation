@@ -8,9 +8,9 @@
 
 | 阶段 | 主题 | 状态 |
 |---|---|---|
-| E0 | 基线与开发规范 | ✅ 进行中（本文档 + CHANGELOG + 分支约定已建立） |
-| E1 | 安全与配置基线（P0） | 🔄 进行中 |
-| E2 | 测试与运行基线（P0） | ⏳ 待开始 |
+| E0 | 基线与开发规范 | ✅ 已完成（本文档 + CHANGELOG + 分支约定已建立） |
+| E1 | 安全与配置基线（P0） | ✅ 已完成（PR #1） |
+| E2 | 测试与运行基线（P0） | ✅ 已完成（本分支 PR） |
 | E3 | 受控批量运维（P0） | ⏳ 待开始 |
 | E4 | Linux 主机巡检与监控（P1） | ⏳ 待开始 |
 | E5 | 部署、备份与恢复（P1） | ⏳ 待开始 |
@@ -51,12 +51,24 @@
 - [x] 非开发环境使用默认 Secret 时启动失败（pytest 覆盖）
 - [x] 未登记 host key 的 SSH 目标被拒绝（pytest 覆盖）
 
-## E2 测试与运行基线（待开始）
+## E2 测试与运行基线（已完成）
 
-- [ ] 后端 pytest 覆盖登录、bootstrap、角色权限、资产 CRUD、批量任务、告警、Cron
-- [ ] 核心安全模块覆盖率 >= 80%
-- [ ] Alembic 替代启动时 `create_all`
-- [ ] CI：Ruff、pytest、coverage、依赖审计全绿
+- [x] 后端 pytest 覆盖登录、bootstrap、角色权限、资产 CRUD、批量任务、告警、Cron、
+      部署（`tests/`，共 65 项通过）
+- [x] 批量执行边界：空资产 / 超 50 台 / 资产缺失 400、重复请求各自成记录、
+      单主机失败隔离（`tests/test_exec.py`）
+- [x] 错误响应：404 / 400 / 409 / 422 全覆盖（`tests/test_crud.py`）
+- [x] 核心安全模块覆盖率 >= 80%（实测 91%：`common` / `config` / `dependencies` /
+      `services.ssh_service`）
+- [x] 全局覆盖率初始门禁 >= 50%（实测 88%）
+- [x] Alembic 替代启动时 `create_all`（`alembic/0001_initial_schema`，Compose 启动前
+      执行 `alembic upgrade head`）
+- [x] CI：Ruff、pytest、coverage（全局 + 安全模块）、`pip-audit` 依赖审计、
+      Alembic SQLite 迁移校验、kubeconform K8s 清单校验、README/docs 链接检查全绿
+- [x] 依赖审计修复：fastapi/starlette/instrumentator/python-multipart/requests/
+      python-jose→PyJWT/paramiko/pytest 升级，`pip-audit` 与 `npm audit` 均 0 漏洞
+
+实施细节见 `docs/changes/2026-08-14-e2-test-health.md`。
 
 ## E3 受控批量运维（待开始）
 

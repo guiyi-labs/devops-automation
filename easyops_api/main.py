@@ -1,5 +1,4 @@
 import logging
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +10,7 @@ from api.v1 import alert, asset, cron_task, deploy, docker_k8s, exec_task, user
 from common.redact import LogRedactFilter, redact
 from config import settings
 from database import models  # noqa
-from database.session import Base, SessionLocal, engine
+from database.session import SessionLocal
 
 # 应用日志统一脱敏：密码/私钥/Token/连接串不进入日志
 logging.basicConfig(
@@ -22,13 +21,7 @@ for handler in logging.getLogger().handlers:
     handler.addFilter(LogRedactFilter())
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-app = FastAPI(title='EasyOps DevOps API', version='1.1.0', lifespan=lifespan)
+app = FastAPI(title='EasyOps DevOps API', version='1.1.0')
 
 # CORS：显式 allowlist，禁止 allow_origins=['*'] 与 allow_credentials=True 组合
 app.add_middleware(

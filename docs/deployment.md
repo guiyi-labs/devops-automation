@@ -462,6 +462,22 @@ docker compose up -d mysql redis
 docker compose up -d api celery web prometheus grafana
 ```
 
+> **数据库迁移（E2 起）**：表结构由 Alembic 管理。`api` 与 `celery` 容器启动命令已内置
+> `alembic upgrade head`（幂等），首次启动会自动建表并写入 `alembic_version`，无需手工
+> `create_all`。升级到包含新迁移的版本时，重建容器即可自动应用迁移：
+>
+> ```bash
+> docker compose up -d --build api celery
+> ```
+>
+> 如需在宿主机单独执行（例如排查迁移问题，需先安装依赖并指向目标库）：
+>
+> ```bash
+> cd easyops_api
+> pip install -r requirements-dev.txt
+> DATABASE_URL=mysql+pymysql://root:密码@127.0.0.1:3306/easyops alembic upgrade head
+> ```
+
 查看容器状态：
 
 ```bash

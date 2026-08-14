@@ -1,18 +1,21 @@
-fastapi==0.111.0
+fastapi==0.141.1
+starlette==1.6.0
 uvicorn[standard]==0.30.1
 SQLAlchemy==2.0.30
 PyMySQL==1.1.1
 pydantic-settings==2.3.4
-python-jose[cryptography]==3.3.0
+# E2：JWT 由 python-jose 迁移至 PyJWT（HS256 用法一致，消除 python-jose/ecdsa 审计告警）
+PyJWT==2.13.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-multipart==0.0.9
+python-multipart==0.0.32
 celery==5.4.0
 redis==5.0.4
-paramiko==3.4.0
+paramiko==5.0.0
 docker==7.1.0
 kubernetes==29.0.0
-prometheus-fastapi-instrumentator==7.0.0
-requests==2.32.3
+prometheus-fastapi-instrumentator==8.1.0
+requests==2.34.2
 email-validator==2.1.1
 cryptography>=42.0
+alembic==1.13.3
