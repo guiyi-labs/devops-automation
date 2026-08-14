@@ -18,8 +18,9 @@ EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查
 
 | 方向 | 当前能力 | 主要实现位置 |
 |---|---|---|
-| 身份与资产 | 管理员初始化、登录、用户管理、服务器资产增删改查 | `api/v1/user.py`、`api/v1/asset.py` |
-| 批量运维 | 批量命令入口、执行记录、Celery 异步任务 | `api/v1/exec_task.py`、`tasks/` |
+| 身份与资产 | 管理员一次性初始化、登录、三角色权限（admin/operator/viewer）、用户管理、服务器资产增删改查 | `api/v1/user.py`、`api/v1/asset.py`、`dependencies.py` |
+| 安全基线 | 全路由鉴权、SSH 凭据加密存储、host key 指纹校验、日志脱敏、审计日志、生产配置校验 | `common/crypto.py`、`common/redact.py`、`services/ssh_service.py`、`config.py` |
+| 批量运维 | 批量命令入口（仅传递资产 ID，Worker 内解密凭据）、执行记录、Celery 异步任务 | `api/v1/exec_task.py`、`tasks/exec_tasks.py` |
 | 容器主机 | Docker 容器查询与主机运行状态 | `api/v1/docker_k8s.py`、`services/docker_service.py` |
 | 发布管理 | 部署项目登记与发布执行入口 | `api/v1/deploy.py`、`services/deploy_service.py` |
 | 监控告警 | 告警规则管理、Prometheus 指标暴露、Grafana / Prometheus 组合 | `api/v1/alert.py`、`docker-compose.yml` |
@@ -42,11 +43,17 @@ flowchart LR
 
 ## 快速启动
 
-准备 Docker Desktop 或 Docker Engine、Docker Compose v2，然后在项目根目录执行：
+准备 Docker Desktop 或 Docker Engine、Docker Compose v2，然后：
 
 ```bash
+# 1. 复制环境变量示例并按需修改（本地演示可直接使用默认值）
+cp .env.example .env
+
+# 2. 启动（MySQL/Redis 默认不映射宿主机端口；需要时叠加 ports 覆盖文件）
 docker compose up -d --build
 docker compose ps
+# 需要宿主机直连 MySQL/Redis（或监控端口）时：
+#   docker compose -f docker-compose.yml -f docker-compose.ports.yml up -d --build
 ```
 
 访问地址：
@@ -58,9 +65,29 @@ docker compose ps
 | Prometheus | `http://localhost:9090` | 查询指标 |
 | Grafana | `http://localhost:3000` | 配置监控大盘 |
 
-首次启动后，在登录页初始化本地演示管理员。仓库中的默认账号和数据库密码仅用于开发演示，
-部署到真实环境前必须修改密码、`SECRET_KEY` 和数据库配置，并限制数据库、Redis、Swagger
-和监控端口的访问范围。
+首次启动后在登录页点击「初始化管理员」（一次性 bootstrap，重复调用返回 409）。
+仓库中的默认账号和数据库密码仅用于开发演示；部署到真实环境前必须设置
+`APP_ENV=production`，并配置强随机 `SECRET_KEY`、`CREDENTIAL_ENCRYPTION_KEY`、
+数据库密码和 `INITIAL_ADMIN_PASSWORD`——生产环境未配置或使用默认值时应用会拒绝启动。
+
+## 安全能力与边界（E1）
+
+已实现并经过测试（`easyops_api/tests/`）：
+
+- **全路由鉴权**：所有业务接口未登录返回 401；`viewer` 写操作返回 403；
+  用户管理仅 `admin`；`admin` / `operator` / `viewer` 三角色。
+- **一次性 bootstrap**：`init-admin` 完成后自动关闭，重复调用返回 409。
+- **SSH 凭据加密**：密码 / 私钥 Fernet 加密后落库（`v1:` 版本前缀），API 只返回
+  `has_password` / `has_private_key`；Celery 任务只传资产 ID，Worker 内解密。
+- **主机密钥校验**：默认拒绝未登记 host key 的主机，已登记指纹严格比对；
+  认证失败 / 指纹不匹配 / 超时 / 不可达 / 命令失败返回可区分错误。
+- **配置校验**：`APP_ENV=production` 时缺少关键 Secret 或使用默认值拒绝启动。
+- **日志与审计**：日志、异常、审计对密码 / 私钥 / Token / 连接串统一脱敏；
+  登录失败、权限拒绝、敏感操作写入 `audit_log`。
+- **健康检查**：`/health/live`、`/health/ready`；Compose 全部服务带 healthcheck。
+
+边界与已知限制：任意命令批量执行仍未加参数白名单（E3）；Swagger `/docs` 默认开放；
+真实 Linux 演练、备份恢复与截图证据尚未完成，README 不宣称生产级。
 
 ## Linux 部署
 
@@ -85,15 +112,20 @@ Linux 部署、端口规划、组件连接、备份恢复与故障排查见：
 
 ## CI 与本地验证
 
-当前 GitHub Actions 包含两个基础门禁：后端 Python 语法检查和前端生产构建。
+GitHub Actions 包含后端 Ruff / 语法检查 / pytest、前端依赖安装 / 审计 / 生产构建、
+以及 `docker compose config` 部署校验。
 
 ```bash
-# 后端语法检查
-python -m compileall -q easyops_api
+# 后端：语法检查 + 单元测试
+cd easyops_api
+python -m compileall -q .
+pip install -r requirements-dev.txt
+pytest -v
 
 # 前端构建
-cd easyops_web
+cd ../easyops_web
 npm ci
+npm audit --omit=dev
 npm run build
 ```
 

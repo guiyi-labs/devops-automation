@@ -81,21 +81,22 @@ curl --version
 
 ### 3.1 平台对外端口
 
-默认 Compose 暴露端口：
+默认 Compose 暴露端口（E1 起 MySQL / Redis 不映射宿主机端口；叠加
+`docker-compose.ports.yml` 才暴露）：
 
 | 端口 | 服务 | 说明 |
 | --- | --- | --- |
 | 8080 | easyops_web | 前端管理后台 |
 | 8000 | easyops_api | FastAPI / Swagger |
-| 3306 | mysql | MySQL，生产建议不要公网开放 |
-| 6379 | redis | Redis，生产建议不要公网开放 |
+| 3306 | mysql | 仅叠加 `docker-compose.ports.yml` 时暴露，生产不建议公网开放 |
+| 6379 | redis | 仅叠加 `docker-compose.ports.yml` 时暴露，生产不建议公网开放 |
 | 9090 | prometheus | Prometheus |
 | 3000 | grafana | Grafana |
 
 生产建议：
 
 - 只对办公网或 VPN 开放 `8080`、`3000`。
-- `3306`、`6379` 不要对公网开放。
+- `3306`、`6379` 默认不映射宿主端口；确需对外时再叠加 `docker-compose.ports.yml`。
 - API `8000` 建议只由前端 Nginx 或内网访问。
 - 可在前面加一层企业 Nginx / SLB / HTTPS 网关。
 
@@ -114,6 +115,12 @@ EasyOps 批量命令执行依赖 SSH，因此平台服务器需要能够访问�
 ```bash
 ssh root@被管服务器IP
 ```
+
+> **SSH host key 要求（E1）**：EasyOps 默认拒绝连接未登记主机密钥指纹的服务器。
+> 录入资产时应填写 `host_key_fingerprint`（主机密钥 SHA256/base64 指纹，形如
+> `SHA256:...` 去掉前缀后的 base64 串），可通过
+> `ssh-keyscan -t ecdsa 服务器IP 2>/dev/null | ssh-keygen -lf -` 计算。
+> 仅本地开发演示且明确知晓风险时，可设置 `SSH_ALLOW_UNVERIFIED_HOST_KEY=true`。
 
 ### 3.3 服务连接关系
 
@@ -371,25 +378,27 @@ ls
 
 ## 6. 配置环境变量
 
-当前 `docker-compose.yml` 已内置默认开发配置，可直接启动。生产环境建议修改：
-
-- MySQL root 密码
-- JWT `SECRET_KEY`
-- Redis 密码，当前示例未开启 Redis 密码
-- API 对外域名与前端 API 地址
-- MySQL / Redis 是否改为外部高可用服务
-
-建议创建 `.env` 文件统一管理敏感配置，例如：
+从 E1 起，敏感配置全部通过环境变量注入（Compose 自动读取项目根目录 `.env`）。
+首先复制示例并按需修改：
 
 ```bash
-MYSQL_ROOT_PASSWORD=请替换为强密码
-MYSQL_DATABASE=easyops
-MYSQL_USER=easyops
-MYSQL_PASSWORD=请替换为强密码
-SECRET_KEY=请替换为随机长字符串
+cp .env.example .env
 ```
 
-然后在 `docker-compose.yml` 中引用这些变量。
+**必填 / 高危项（`APP_ENV=production` 时应用会拒绝使用默认值启动）：**
+
+| 变量 | 说明 | 生成建议 |
+| --- | --- | --- |
+| `APP_ENV` | `development` / `production` | 真实环境必须 `production` |
+| `SECRET_KEY` | JWT 签名密钥 | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `CREDENTIAL_ENCRYPTION_KEY` | SSH 账密/私钥加密主密钥，丢失后已加密数据无法还原 | 同上 |
+| `MYSQL_PASSWORD` | 数据库密码 | 强随机；与 Compose 的 `MYSQL_ROOT_PASSWORD` 一致 |
+| `INITIAL_ADMIN_PASSWORD` | `init-admin` 一次性初始密码 | 强随机 |
+| `CORS_ORIGINS` | 允许的来源，逗号分隔 | `http://你的前端域名` |
+| `SSH_ALLOW_UNVERIFIED_HOST_KEY` | 是否允许连接未登记指纹的主机 | 生产保持 `false` |
+
+> 密文版本前缀：SSH 凭据加密为 `v1:<token>`。更换 `CREDENTIAL_ENCRYPTION_KEY`
+> 会使所有已加密凭据无法解密，请妥善备份该值。
 
 ### 6.1 当前默认连接配置
 

@@ -1,0 +1,16 @@
+# 可选覆盖文件：把 MySQL / Redis、Prometheus / Grafana 端口映射到宿主机。
+#
+# 用法（叠加在基础 Compose 上）：
+#   docker compose -f docker-compose.yml -f docker-compose.ports.yml up -d --build
+#
+# 默认不叠加时，MySQL / Redis 只在 Compose 内部网络开放（更安全）；
+# 本地开发或调试需要直接连接时再启用本文件。
+services:
+  mysql:
+    ports: ["3306:3306"]
+  redis:
+    ports: ["6379:6379"]
+  prometheus:
+    ports: ["9090:9090"]
+  grafana:
+    ports: ["3000:3000"]
