@@ -16,6 +16,11 @@ coverage/
 logs/
 *.log
 
+# 本地环境变量（含真实凭据，绝不提交；模板见 .env.example）
+.env
+.env.*
+!.env.example
+
 # IDE/系统
 .idea/
 .vscode/

@@ -1,0 +1,94 @@
+# EasyOps 路线图
+
+> 目标：把当前「运维平台功能骨架」建设成能证明 Linux 系统运维、自动化任务、安全控制、
+> 监控告警和恢复能力的作品项目。重点是可运行、可验证、可解释，不追求功能数量。
+> 本文件同步自项目方案；每阶段完成时勾选并附证据链接。
+
+## 阶段总览
+
+| 阶段 | 主题 | 状态 |
+|---|---|---|
+| E0 | 基线与开发规范 | ✅ 进行中（本文档 + CHANGELOG + 分支约定已建立） |
+| E1 | 安全与配置基线（P0） | 🔄 进行中 |
+| E2 | 测试与运行基线（P0） | ⏳ 待开始 |
+| E3 | 受控批量运维（P0） | ⏳ 待开始 |
+| E4 | Linux 主机巡检与监控（P1） | ⏳ 待开始 |
+| E5 | 部署、备份与恢复（P1） | ⏳ 待开始 |
+| E6 | 交付与展示（P1） | ⏳ 待开始 |
+
+## E1 安全与配置基线（目标 2–4 天）
+
+### 配置与 Secret
+
+- [x] 增加 `.env.example`，只提供字段名和开发示例，不保存真实凭据
+- [x] `SECRET_KEY`、MySQL 密码、管理员初始化密码改为环境变量
+- [x] 非开发环境缺少关键 Secret 时启动失败（`config.validate_settings`）
+- [x] CORS 改为明确 allowlist，禁止 `*` 与凭据模式组合
+- [x] MySQL、Redis 默认只在 Compose 内部网络开放，宿主机端口通过可选
+      `docker-compose.ports.yml` 覆盖文件启用
+
+### 身份与权限
+
+- [x] 全部业务路由统一要求登录（未登录 401）
+- [x] 最小角色：`admin`（系统管理员）、`operator`、`viewer`
+- [x] 写操作要求 admin/operator，用户管理仅 admin
+- [x] `init-admin` 一次性 bootstrap，重复调用 409
+- [x] 禁用用户不能继续使用旧 Token
+- [x] 登录失败、权限拒绝和敏感操作写入 `audit_log`
+
+### SSH 凭据与主机信任
+
+- [x] SSH 密码 / 私钥加密后存储，API 只返回 `has_password` / `has_private_key`
+- [x] 加密密钥从环境变量注入，密文带 `v1:` 版本前缀
+- [x] 默认拒绝未知 host key，资产支持显式保存指纹并按指纹严格校验
+- [x] 日志和异常统一脱敏主机密码、私钥、Token、数据库 URL
+
+### 验收门禁
+
+- [x] 未登录访问所有业务接口返回 401（pytest 覆盖）
+- [x] viewer 写操作返回 403（pytest 覆盖）
+- [x] API 响应、日志和任务参数扫描不到明文凭据（pytest 覆盖）
+- [x] 非开发环境使用默认 Secret 时启动失败（pytest 覆盖）
+- [x] 未登记 host key 的 SSH 目标被拒绝（pytest 覆盖）
+
+## E2 测试与运行基线（待开始）
+
+- [ ] 后端 pytest 覆盖登录、bootstrap、角色权限、资产 CRUD、批量任务、告警、Cron
+- [ ] 核心安全模块覆盖率 >= 80%
+- [ ] Alembic 替代启动时 `create_all`
+- [ ] CI：Ruff、pytest、coverage、依赖审计全绿
+
+## E3 受控批量运维（待开始）
+
+- [ ] 固定操作目录（磁盘/内存/服务状态/重启/日志/端口），参数白名单
+- [ ] `break_glass` 任意命令默认关闭，仅 admin 可启用
+- [ ] 幂等键、预览确认、并发上限、输出上限、单主机失败隔离
+
+## E4 主机巡检与监控（待开始）
+
+- [ ] 主机事实采集与巡检规则（healthy/warning/critical/unknown）
+- [ ] API/Worker 指标、Grafana dashboard、告警规则
+
+## E5 部署、备份与恢复（待开始）
+
+- [ ] Docker Compose 受控部署计划（预览/部署/健康检查/回滚）
+- [ ] MySQL 备份校验与空环境恢复演练
+
+## E6 交付与展示（待开始）
+
+- [ ] 真实 Linux 全新部署 + 演示脚本 + README 截图
+- [ ] 发布 v0.1.0（Release Notes、兼容范围、已知限制、升级/回滚）
+
+## 非目标
+
+- 不负责 Kubernetes 集群创建 / 多集群管理（归 `kubernetes-cluster-bootstrap` /
+  `aiops-platform`）；EasyOps 的 K8s 清单只用于部署自身。
+- 不做浏览器 WebShell 或默认开放任意命令。
+- 不做完整 Jenkins / GitLab / Argo CD 替代品。
+
+## Git 约定
+
+- 分支：`feat/*`、`fix/*`；每阶段通过 PR 合入 `main`。
+- 提交只包含当前任务文件；tag / Release / 生产部署需单独确认。
+- 变更记录：改动写入 `CHANGELOG.md` 的 `Unreleased`，实施细节写入
+  `docs/changes/YYYY-MM-DD-<slug>.md`。

@@ -1,48 +1,101 @@
-version: '3.8'
+# EasyOps 单机部署。
+# 安全说明（E1）：
+#   - MySQL / Redis 默认只在 Compose 内部网络开放，不映射宿主机端口；
+#     需要宿主机端口时叠加 docker-compose.ports.yml 一起启动。
+#   - 所有服务带 healthcheck，api/web 等 depends_on 使用健康条件。
+#   - 凭据全部通过环境变量注入（自动读取 .env，见 .env.example），仓库不含真实密码。
 services:
   mysql:
     image: docker.m.daocloud.io/library/mysql:5.7
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
-      MYSQL_DATABASE: easyops
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DB:-easyops}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    ports: ["3306:3306"]
     volumes: [mysql_data:/var/lib/mysql]
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
   redis:
     image: docker.m.daocloud.io/library/redis:6
-    ports: ["6379:6379"]
     volumes: [redis_data:/data]
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
   api:
     build: ./easyops_api
     environment:
+      APP_ENV: ${APP_ENV:-development}
       MYSQL_HOST: mysql
       REDIS_HOST: redis
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root123456}
+      MYSQL_DB: ${MYSQL_DB:-easyops}
+      SECRET_KEY: ${SECRET_KEY:-}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-admin123}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      SSH_ALLOW_UNVERIFIED_HOST_KEY: ${SSH_ALLOW_UNVERIFIED_HOST_KEY:-false}
     ports: ["8000:8000"]
-    depends_on: [mysql, redis]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
   celery:
     build: ./easyops_api
     command: celery -A tasks.celery_app.celery worker -l INFO
     environment:
+      APP_ENV: ${APP_ENV:-development}
       MYSQL_HOST: mysql
       REDIS_HOST: redis
-    depends_on: [mysql, redis]
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root123456}
+      MYSQL_DB: ${MYSQL_DB:-easyops}
+      SECRET_KEY: ${SECRET_KEY:-}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
   web:
     build: ./easyops_web
     ports: ["8080:80"]
-    depends_on: [api]
+    depends_on:
+      api:
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   prometheus:
     image: docker.m.daocloud.io/prom/prometheus:latest
     volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml]
     ports: ["9090:9090"]
+    restart: always
   grafana:
     image: docker.m.daocloud.io/grafana/grafana:latest
     ports: ["3000:3000"]
     volumes: [grafana_data:/var/lib/grafana]
+    restart: always
 volumes:
   mysql_data:
   redis_data:

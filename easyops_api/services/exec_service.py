@@ -1,9 +1,8 @@
 from celery import group
-from database.models import ServerAsset
+
 from tasks.exec_tasks import batch_exec_command
 
-def submit_batch_command(assets: list[ServerAsset], command: str):
-    return group(
-        batch_exec_command.s(a.ip_address, a.ssh_port, a.ssh_user, a.ssh_pwd or '', command)
-        for a in assets
-    )()
+
+def submit_batch_command(asset_ids: list[int], command: str):
+    """提交批量命令：只传资产 ID，凭据由 Worker 从数据库读取。"""
+    return group(batch_exec_command.s(asset_id, command) for asset_id in asset_ids)()
