@@ -537,7 +537,7 @@ yarn-error.log*
 ''')
 w('easyops_web/nginx.conf', "server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } location /api/ { proxy_pass http://api:8000/api/; } }")
 w('easyops_web/index.html', '<div id="app"></div><script type="module" src="/src/main.js"></script>')
-w('easyops_web/vite.config.js', "import { defineConfig } from 'vite'; import vue from '@vitejs/plugin-vue'; export default defineConfig({plugins:[vue()],server:{proxy:{'/api':'http://localhost:8000'}}})")
+w('easyops_web/vite.config.mjs', "import { defineConfig } from 'vite'; import vue from '@vitejs/plugin-vue'; export default defineConfig({plugins:[vue()],server:{proxy:{'/api':'http://localhost:8000'}}})")
 w('easyops_web/src/main.js', "import {createApp} from 'vue';import ElementPlus from 'element-plus';import 'element-plus/dist/index.css';import App from './App.vue';import router from './router';createApp(App).use(router).use(ElementPlus).mount('#app')")
 w('easyops_web/src/App.vue', '<template><router-view /></template>')
 w('easyops_web/src/api/http.js', "import axios from 'axios';const http=axios.create({baseURL:'/api/v1'});http.interceptors.request.use(c=>{const t=localStorage.getItem('token');if(t)c.headers.Authorization=`Bearer ${t}`;return c});export default http")

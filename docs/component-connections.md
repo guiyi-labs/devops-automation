@@ -124,7 +124,7 @@ http://api:8000/api/v1/user/login
 
 ### 4.3 前端本地开发连接
 
-本地 Vite 开发环境通过 `easyops_web/vite.config.js` 代理：
+本地 Vite 开发环境通过 `easyops_web/vite.config.mjs` 代理：
 
 ```text
 /api -> http://localhost:8000

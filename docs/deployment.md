@@ -136,7 +136,7 @@ Docker Compose 启动后，各服务位于同一个默认 Docker 网络中，容
 - 后端数据库/Redis 配置：`easyops_api/config.py`
 - Compose 环境变量：`docker-compose.yml` 中 `api.environment` 与 `celery.environment`
 - 前端生产代理：`easyops_web/nginx.conf`，默认将 `/api/` 转发到 `http://api:8000/api/`
-- 前端开发代理：`easyops_web/vite.config.js`，本地开发时代理到 `http://localhost:8000`
+- 前端开发代理：`easyops_web/vite.config.mjs`，本地开发时代理到 `http://localhost:8000`
 - Prometheus 采集配置：`prometheus.yml`
 
 ## 4. 安装 Docker 与 Compose
@@ -418,7 +418,7 @@ SECRET_KEY=请替换为随机长字符串
 
 因此前端页面中请求 `/api/v1/...` 即可，不需要在浏览器侧直接访问 `api:8000`。`api` 是 Docker 内部服务名，只能在容器网络中解析。
 
-本地开发时，`easyops_web/vite.config.js` 会把 `/api` 代理到：
+本地开发时，`easyops_web/vite.config.mjs` 会把 `/api` 代理到：
 
 ```text
 http://localhost:8000
@@ -755,7 +755,6 @@ kubectl apply -f k8s/easyops-api.yaml
 - Secret / ConfigMap
 - PVC 持久化存储
 - Ingress HTTPS 证书
-
 
 
 
