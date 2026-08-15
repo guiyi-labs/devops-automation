@@ -7,7 +7,27 @@
 
 ### Added
 
-- 主机巡检与监控（E4）：
+- 部署、备份与恢复（E5）：
+  - 受控部署计划（`services/deploy_service.py` + `deploy_templates/compose-web/`）：
+    预览计划（pull/build/up/healthcheck 固定步骤）、步骤白名单（非法步骤立即中止）、
+    回滚到「早于当前发布」的最近有效发布；只执行模板目录固定动作，不执行项目仓库任意脚本。
+  - 部署 API（`api/v1/deploy.py`）：`POST /projects/{id}/preview`、
+    `POST /releases`（派发 Celery）、`GET /projects/{id}/releases`、`GET /releases/{id}`、
+    `POST /releases/{id}/rollback`、`GET /templates`；E2 占位 `POST .../run` 移除。
+  - 部署 Worker（`tasks/deploy_tasks.py`）：`run_deploy_release` /
+    `run_rollback_release`，发布记录保存 image/version/image_digest/执行人/结果。
+  - MySQL 逻辑备份恢复（`services/backup_service.py` + `tasks/backup_tasks.py`）：
+    engine.dump → gzip/sha256/一致性校验；恢复仅允许校验通过的备份、带表级一致性
+    validation；失败备份不覆盖最后一份有效备份（checksum_ok 才记有效）。
+  - 备份 API（`api/v1/backup.py`）：`POST /create`、`POST /restore`、
+    `GET /records[/{id}]`、`GET /policy`。
+  - Alembic 迁移 `0004_add_deploy_backup`：`deploy_release` / `backup_record` 两表，
+    SQLite 与 MySQL 均原生建表；迁移往返测试覆盖 0003→0004→downgrade。
+  - 前端：`DeployProject.vue` 受控计划（预览/发布/回滚/发布记录）+
+    `BackupRestore.vue`（路由 `/backup`，备份/恢复/校验详情）；`api/deploy.js` 扩展。
+  - 测试：E5 新增 21 项（部署预览/发布/回滚/白名单/Worker、备份校验/恢复/保留/权限、
+    迁移 0004），pytest 全量 100 → 121。
+  - 主机巡检与监控（E4）：
   - SSH 只读事实采集（`services/host_inspection.py`）：一次会话多探测（OS/内核/
     uptime/CPU/load/内存/swap/磁盘+inode/监听端口/运行服务），逐探测容错，
     `HostFacts` 固定携带 `observed_at/source/timeout_ms/unavailable_reason`；

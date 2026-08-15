@@ -24,7 +24,8 @@ EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查
 | 批量运维 | 受控批量链路：固定操作目录（磁盘/内存/服务/日志/端口）+ 参数白名单、preview 确认令牌、幂等键、有界并发与超时、逐主机结果与失败重试、break-glass 任意命令（默认关、仅 admin） | `api/v1/exec_task.py`、`services/operations.py`、`tasks/exec_tasks.py` |
 | 主机巡检 | SSH 只读事实采集（OS/内核/负载/内存/swap/磁盘/inode/端口/服务）、规则引擎（healthy/warning/critical/unknown，缺数据固定 unknown）、巡检记录与规则管理、自定义 Prometheus 指标、告警规则与 Grafana dashboard | `services/host_inspection.py`、`services/inspection_rules.py`、`api/v1/inspection.py`、`tasks/inspection_tasks.py`、`metrics` |
 | 容器主机 | Docker 容器查询与主机运行状态 | `api/v1/docker_k8s.py`、`services/docker_service.py` |
-| 发布管理 | 部署项目登记与发布执行入口 | `api/v1/deploy.py`、`services/deploy_service.py` |
+| 发布管理 | 受控部署计划：模板步骤白名单（pull/build/up/healthcheck）、预览计划、发布记录（版本/镜像 digest/执行人/结果）、回滚到最近有效发布、不执行仓库任意脚本 | `api/v1/deploy.py`、`services/deploy_service.py`、`tasks/deploy_tasks.py`、`deploy_templates/` |
+| 备份恢复 | MySQL 逻辑备份与校验（gzip/sha256/一致性）、仅从校验通过的备份恢复、失败备份不覆盖最后有效备份、备份/恢复记录 | `api/v1/backup.py`、`services/backup_service.py`、`tasks/backup_tasks.py` |
 | 监控告警 | 告警规则管理、Prometheus 指标暴露、Grafana / Prometheus 组合 | `api/v1/alert.py`、`docker-compose.yml`、`prometheus-alerts.yml`、`grafana/` |
 | 定时作业 | Cron 任务登记与查询，Celery Worker 承载异步执行 | `api/v1/cron_task.py`、`tasks/` |
 

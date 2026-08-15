@@ -226,6 +226,43 @@ class DeployProjectOut(DeployProjectCreate):
         from_attributes = True
 
 
+# ---------- E5 部署发布 / 备份恢复 ----------
+class DeployReleaseOut(BaseModel):
+    id: int
+    project_id: int
+    release_type: str
+    status: str
+    git_ref: str | None = None
+    image: str | None = None
+    image_digest: str | None = None
+    version: str | None = None
+    exec_user: str
+    result: str | None = None
+    create_time: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class BackupRecordOut(BaseModel):
+    id: int
+    op_type: str
+    status: str
+    file_path: str | None = None
+    file_size_bytes: int | None = None
+    backup_engine: str
+    database: str | None = None
+    checksum: str | None = None
+    checksum_ok: int
+    validation: str | None = None
+    exec_user: str
+    result: str | None = None
+    create_time: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
 # ---------- 告警 ----------
 class AlertRuleCreate(BaseModel):
     rule_name: str
