@@ -17,12 +17,22 @@
 | --- | --- |
 | `scripts/rocky_apply_web_build_fix.sh` | Rocky 测试服务器前端 Docker 构建权限修复脚本 |
 
+## 2.5 阶段变更归档
+
+| 变更文档 | 阶段 |
+| --- | --- |
+| `docs/changes/2026-08-14-e2-test-health.md` | E2 测试与运行基线 |
+| `docs/changes/2026-08-14-e3-controlled-batch-exec.md` | E3 受控批量运维 |
+| `docs/changes/2026-08-15-e4-host-inspection.md` | E4 主机巡检与监控 |
+
 ## 3. 当前关键配置
 
 | 文件 | 用途 |
 | --- | --- |
 | `docker-compose.yml` | Compose 一键部署入口 |
 | `prometheus.yml` | Prometheus 指标采集配置 |
+| `prometheus-alerts.yml` | Prometheus 告警规则（API 不可用/队列积压/失败率/巡检） |
+| `grafana/` | Grafana provisioning（datasource + dashboard JSON） |
 | `easyops_web/Dockerfile` | 前端镜像构建配置 |
 | `easyops_web/.dockerignore` | 前端 Docker 构建上下文排除规则 |
 | `easyops_web/nginx.conf` | 前端 Nginx 反向代理配置 |

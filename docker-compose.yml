@@ -93,13 +93,22 @@ services:
       start_period: 10s
   prometheus:
     image: docker.m.daocloud.io/prom/prometheus:latest
-    volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml
     ports: ["9090:9090"]
     restart: always
   grafana:
     image: docker.m.daocloud.io/grafana/grafana:latest
     ports: ["3000:3000"]
-    volumes: [grafana_data:/var/lib/grafana]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"      # 演示环境匿名只读访问 dashboard
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/easyops-overview.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     restart: always
 volumes:
   mysql_data:

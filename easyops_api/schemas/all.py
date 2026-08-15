@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -151,6 +153,56 @@ class HostResultOut(BaseModel):
     stderr: str | None = None
     error_type: str | None = None
     error: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# ---------- E4 主机巡检 ----------
+class InspectionRecordOut(BaseModel):
+    id: int
+    asset_ids: str
+    status: str
+    total_hosts: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    unknown: int = 0
+    exec_user: str
+    create_time: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class HostInspectionOut(BaseModel):
+    id: int
+    record_id: int | None
+    asset_id: int
+    host: str
+    overall_status: str
+    facts: str | None = None
+    rule_results: str | None = None
+    observed_at: datetime | None = None
+    source: str = 'ssh'
+    timeout_ms: int | None = None
+    unavailable_reason: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class InspectionRuleIn(BaseModel):
+    name: str
+    description: str | None = None
+    metric: str
+    operator: str
+    threshold: str
+    severity: str = 'warning'
+    enabled: int = 1
+
+
+class InspectionRuleOut(InspectionRuleIn):
+    id: int
 
     class Config:
         from_attributes = True

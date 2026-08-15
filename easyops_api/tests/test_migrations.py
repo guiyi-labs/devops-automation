@@ -102,6 +102,18 @@ def test_migration_round_trip(tmp_path: str) -> None:
     row_r = _get_exec_record_row(db_path)
     assert row_r is not None
 
+    # --- upgrade to 0003（E4 巡检表） ---
+    alembic_cmd.upgrade(_ALEMBIC_CFG, '0003')
+    tables_0003 = _get_tables(db_path)
+    for t in ('inspection_record', 'host_inspection', 'inspection_rule'):
+        assert t in tables_0003, f'0003 缺少表 {t}'
+    assert 'rule_results' in _get_columns(db_path, 'host_inspection')
+
+    # --- downgrade back to 0002 ---
+    alembic_cmd.downgrade(_ALEMBIC_CFG, '0002')
+    tables_d2 = _get_tables(db_path)
+    assert not ({'inspection_record', 'host_inspection', 'inspection_rule'} & tables_d2)
+
 
 def test_migration_head_matches_models(tmp_path: str) -> None:
     """迁移 head 建表与模型声明元数据表名完全匹配。"""
@@ -109,8 +121,9 @@ def test_migration_head_matches_models(tmp_path: str) -> None:
     os.environ['DATABASE_URL'] = _make_db_url(db_path)
     _ALEMBIC_CFG.set_main_option('sqlalchemy.url', _make_db_url(db_path))
     alembic_cmd.upgrade(_ALEMBIC_CFG, 'head')
-    from database.models import ExecRecord, ExecHostResult
-    expected = {t.__tablename__ for t in [ExecRecord, ExecHostResult]}
+    from database.models import ExecRecord, ExecHostResult, HostInspection, InspectionRecord, InspectionRule
+    expected = {t.__tablename__ for t in [ExecRecord, ExecHostResult, HostInspection,
+                                          InspectionRecord, InspectionRule]}
     actual = _get_tables(db_path)
     missing = expected - actual
     assert not missing, f'迁移 head 缺少表: {missing}'
@@ -122,3 +135,8 @@ def test_migration_head_matches_models(tmp_path: str) -> None:
     hr_cols = _get_columns(db_path, 'exec_host_result')
     assert 'host' in hr_cols
     assert 'exit_code' in hr_cols
+
+    hi_cols = _get_columns(db_path, 'host_inspection')
+    assert 'facts' in hi_cols
+    assert 'rule_results' in hi_cols
+    assert 'unavailable_reason' in hi_cols

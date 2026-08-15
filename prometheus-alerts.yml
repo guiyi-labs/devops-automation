@@ -1,0 +1,49 @@
+groups:
+  - name: easyops-alerts
+    rules:
+      - alert: EasyOpsApiDown
+        expr: up{job="easyops-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EasyOps API 不可用"
+          description: "任务 easyops-api 已持续 1 分钟无法抓取指标。"
+
+      - alert: EasyOpsQueueBacklog
+        expr: easyops_queue_depth{queue="celery"} > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery 队列积压"
+          description: "celery 队列待处理任务数 {{ $value }} 已超过 50，持续 5 分钟。"
+
+      - alert: EasyOpsTaskFailureRateHigh
+        expr: |
+          sum(rate(easyops_exec_tasks_total{status="failed"}[10m]))
+            / (sum(rate(easyops_exec_tasks_total[10m])) + 1) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "批量执行失败率过高"
+          description: "10 分钟批量执行失败率超过 30%（当前 {{ $value | humanizePercentage }}）。"
+
+      - alert: EasyOpsHostCritical
+        expr: easyops_host_health{status="critical"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "存在 critical 主机"
+          description: "最近一次巡检有 {{ $value }} 台主机为 critical。"
+
+      - alert: EasyOpsInspectionFailures
+        expr: rate(easyops_inspection_hosts_total{status="unknown"}[15m]) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "巡检失败主机增多"
+          description: "巡检 unknown 主机速率超过 0.2/秒（15 分钟窗口）。"

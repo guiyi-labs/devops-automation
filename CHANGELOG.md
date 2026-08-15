@@ -7,7 +7,32 @@
 
 ### Added
 
-- 受控批量运维（E3）：固定操作目录（磁盘/内存/服务状态/重启/日志/端口）与参数白名单
+- 主机巡检与监控（E4）：
+  - SSH 只读事实采集（`services/host_inspection.py`）：一次会话多探测（OS/内核/
+    uptime/CPU/load/内存/swap/磁盘+inode/监听端口/运行服务），逐探测容错，
+    `HostFacts` 固定携带 `observed_at/source/timeout_ms/unavailable_reason`；
+    复用以主机密钥校验与错误分类的 `ssh_service`。
+  - 规则引擎（`services/inspection_rules.py`）：`metric+operator+threshold+severity`
+    判定 healthy/warning/critical/unknown，缺数据固定 unknown 不误判健康；
+    内置 8 条默认规则（磁盘/inode/内存/swap/load/服务/端口），空表自动种子。
+  - 巡检 API（`api/v1/inspection.py`）：`POST /collect` + 记录/逐主机查询 +
+    资产最近一次巡检 + 规则 CRUD，全写操作审计。
+  - Worker（`tasks/inspection_tasks.py`）：`inspect_host` 采集→评估→落库→聚合
+    记录计数；已加入 `celery_app.autodiscover_tasks`。
+  - Alembic 迁移 `0003_add_host_inspection`：`inspection_record` /
+    `host_inspection` / `inspection_rule` 三表，SQLite 与 MySQL 均原生 ALTER 路径。
+  - 自定义 Prometheus 指标（`services/metrics.py`）：执行/巡检计数与耗时、
+    队列深度、最近巡检健康分布（`tasks/metrics_tasks.py` 采样队列）。
+  - 告警规则（`prometheus-alerts.yml`）：API 不可用 / 队列积压 / 任务失败率 /
+    critical 主机 / 巡检失败速率。
+  - Grafana（`grafana/`）：provisioning 自动注册 datasource + `easyops-overview`
+    dashboard（请求速率/P95 延迟/队列深度/任务成败/延迟分位/执行耗时/成功率/
+    巡检健康分布），匿名只读、默认首页。
+  - 前端 `HostInspection.vue`（路由 `/inspect`）：巡检采集（多选资产 → 记录列表 →
+    逐主机详情，采集时间戳必显、unknown 显示原因）+ 规则管理 tab。
+  - 测试：E4 新增 23 项（解析函数/规则引擎/collect API/Worker/mock SSH 采集），
+    pytest 全量 77 → 100；迁移测试扩展 0003 往返与 head 对齐。
+  - 受控批量运维（E3）：固定操作目录（磁盘/内存/服务状态/重启/日志/端口）与参数白名单
   + `shlex.quote` 双重防注入（`services/operations.py`）；preview 确认令牌；幂等键去重；
   单任务资产上限 50、Worker 并发上限 8、单主机硬超时 90s；逐主机执行状态
   （queued/running/succeeded/failed/timed_out）落库与失败重试；break-glass 任意命令
