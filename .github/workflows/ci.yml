@@ -39,7 +39,8 @@ jobs:
           import sqlite3
           conn = sqlite3.connect('migrate_ci.db')
           tables = {r[0] for r in conn.execute(\"select name from sqlite_master where type='table' and name not like 'sqlite_%'\")}
-          expected = {'sys_role','sys_user','server_asset','exec_record','deploy_project','cron_task','alert_rule','audit_log','system_flag'}
+          expected = {'sys_role','sys_user','server_asset','exec_record','exec_host_result',
+                      'deploy_project','cron_task','alert_rule','audit_log','system_flag'}
           assert expected <= tables, f'missing tables: {expected - tables}'
           print('alembic migration tables ok:', sorted(expected & tables))
           conn.close()"

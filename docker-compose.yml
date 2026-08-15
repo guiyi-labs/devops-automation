@@ -59,8 +59,8 @@ services:
       start_period: 40s
   celery:
     build: ./easyops_api
-    # E2：Worker 也需表结构，先迁移再启动
-    command: sh -c "alembic upgrade head && celery -A tasks.celery_app.celery worker -l INFO"
+    # E2：Worker 也需表结构，先迁移再启动；E3：限制并发并设置单任务硬超时
+    command: sh -c "alembic upgrade head && celery -A tasks.celery_app.celery worker -l INFO --concurrency=${BATCH_CONCURRENCY:-8}"
     environment:
       APP_ENV: ${APP_ENV:-development}
       MYSQL_HOST: mysql
@@ -70,6 +70,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      BATCH_CONCURRENCY: ${BATCH_CONCURRENCY:-8}
+      EXEC_TASK_HARD_TIMEOUT: ${EXEC_TASK_HARD_TIMEOUT:-90}
     depends_on:
       mysql:
         condition: service_healthy

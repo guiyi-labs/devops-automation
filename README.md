@@ -21,7 +21,7 @@ EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查
 | 身份与资产 | 管理员一次性初始化、登录、三角色权限（admin/operator/viewer）、用户管理、服务器资产增删改查 | `api/v1/user.py`、`api/v1/asset.py`、`dependencies.py` |
 | 安全基线 | 全路由鉴权、SSH 凭据加密存储、host key 指纹校验、日志脱敏、审计日志、生产配置校验 | `common/crypto.py`、`common/redact.py`、`services/ssh_service.py`、`config.py` |
 | 测试与运行基线 | Alembic 数据库迁移、pytest 单元测试与覆盖率门禁、CI 依赖审计 / K8s 清单校验 / 链接检查 | `alembic/`、`tests/`、`.github/workflows/ci.yml` |
-| 批量运维 | 批量命令入口（仅传递资产 ID，Worker 内解密凭据）、执行记录、Celery 异步任务 | `api/v1/exec_task.py`、`tasks/exec_tasks.py` |
+| 批量运维 | 受控批量链路：固定操作目录（磁盘/内存/服务/日志/端口）+ 参数白名单、preview 确认令牌、幂等键、有界并发与超时、逐主机结果与失败重试、break-glass 任意命令（默认关、仅 admin） | `api/v1/exec_task.py`、`services/operations.py`、`tasks/exec_tasks.py` |
 | 容器主机 | Docker 容器查询与主机运行状态 | `api/v1/docker_k8s.py`、`services/docker_service.py` |
 | 发布管理 | 部署项目登记与发布执行入口 | `api/v1/deploy.py`、`services/deploy_service.py` |
 | 监控告警 | 告警规则管理、Prometheus 指标暴露、Grafana / Prometheus 组合 | `api/v1/alert.py`、`docker-compose.yml` |
@@ -87,8 +87,9 @@ docker compose ps
   登录失败、权限拒绝、敏感操作写入 `audit_log`。
 - **健康检查**：`/health/live`、`/health/ready`；Compose 全部服务带 healthcheck。
 
-边界与已知限制：任意命令批量执行仍未加参数白名单（E3）；Swagger `/docs` 默认开放；
-真实 Linux 演练、备份恢复与截图证据尚未完成，README 不宣称生产级。
+边界与已知限制：批量执行仅允许固定操作目录（任意命令需 break-glass，默认关闭、仅
+admin）；`Swagger /docs` 默认开放；真实 Linux 演练、备份恢复与截图证据归 E4/E6，
+README 不宣称生产级。
 
 ## Linux 部署
 

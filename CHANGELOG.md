@@ -7,6 +7,25 @@
 
 ### Added
 
+- 受控批量运维（E3）：固定操作目录（磁盘/内存/服务状态/重启/日志/端口）与参数白名单
+  + `shlex.quote` 双重防注入（`services/operations.py`）；preview 确认令牌；幂等键去重；
+  单任务资产上限 50、Worker 并发上限 8、单主机硬超时 90s；逐主机执行状态
+  （queued/running/succeeded/failed/timed_out）落库与失败重试；break-glass 任意命令
+  默认关闭、仅 admin 启用（需理由并写审计）。
+- Alembic 迁移 `0002_extend_exec_record_and_host_result`：`exec_record` 扩展 E3 字段并
+  移除旧 `exec_status`，新增 `exec_host_result` 表；SQLite batch 重建（保留旧数据）、
+  MySQL 原生 ALTER；`alembic/env.py` 优先读取实时 `DATABASE_URL`。
+- 前端 4 步受控执行向导（`easyops_web/src/views/exec/BatchExec.vue`）：选资产 →
+  选操作/参数（或 break-glass）→ 预览确认（令牌+幂等键）→ 逐主机结果轮询与重试。
+- 迁移往返测试（`tests/test_migrations.py`）：0001→0002→downgrade→re-upgrade 与
+  head 数据模型对齐。
+- pytest 全量从 65 增至 77 项，覆盖率全局 85.49%（≥50%）、安全模块 91.09%（≥80%）。
+
+### Changed
+
+- E2 单文本框「任意命令」批量入口改为受控目录：写操作必须 preview 确认，
+  任意命令仅在 break-glass 开启且管理员身份下可用。
+
 - Alembic 迁移（E2）：`alembic/` 初始迁移 `0001_initial_schema`，替代启动时
   `Base.metadata.create_all`；Compose 中 api/celery 启动前执行 `alembic upgrade head`。
 - pytest-cov 覆盖率门禁：全局初始 ≥ 50%，核心安全模块（`common` / `config` /

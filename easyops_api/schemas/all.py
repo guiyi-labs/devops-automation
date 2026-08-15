@@ -83,19 +83,74 @@ class AssetOut(BaseModel):
     disk: str | None = None
 
 
-# ---------- 批量执行 ----------
+# ---------- 批量执行（E3 受控操作） ----------
 class BatchExecRequest(BaseModel):
+    """受控执行请求。
+
+    - operation + params：使用固定操作目录（推荐，防注入）；
+    - command：break_glass 任意命令，仅 admin 且开关开启时可用；
+    - idempotency_key：幂等键，同键不重复执行；
+    - confirm_token：来自 /exec/preview 的确认令牌，写操作提交时必须携带。
+    """
     asset_ids: list[int]
+    operation: str | None = None
+    params: dict = {}
+    command: str | None = None          # break_glass 任意命令
+    idempotency_key: str
+    confirm_token: str | None = None
+
+
+class ExecPreviewRequest(BaseModel):
+    """预览请求：校验操作/参数/命令并生成确认令牌（不真正执行）。"""
+
+    asset_ids: list[int]
+    operation: str | None = None
+    params: dict = {}
+    command: str | None = None          # break_glass 任意命令
+
+
+class ExecPreviewOut(BaseModel):
+    asset_ids: list[int]
+    hosts: list[str]
+    operation: str | None
     command: str
+    risk: str
+    total_hosts: int
+    confirm_token: str | None = None
+    idempotency: bool = True
 
 
 class ExecRecordOut(BaseModel):
     id: int
     asset_ids: str
+    exec_type: str
+    operation: str | None = None
     command: str
     exec_user: str
-    exec_status: int
+    status: str
+    idempotency_key: str | None = None
+    total_hosts: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    running: int = 0
+    timed_out: int = 0
     exec_result: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class HostResultOut(BaseModel):
+    id: int
+    record_id: int
+    asset_id: int
+    host: str
+    status: str
+    exit_code: int | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    error_type: str | None = None
+    error: str | None = None
 
     class Config:
         from_attributes = True
