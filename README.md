@@ -117,19 +117,22 @@ Linux 部署、端口规划、组件连接、备份恢复与故障排查见：
 - [Linux 部署与运维手册](docs/deployment.md)
 - [组件连接关系](docs/component-connections.md)
 - [卸载与恢复说明](docs/uninstall-restore.md)
+- [K8s 部署（附加选项）](docs/k8s-deployment.md)
 
 最低建议配置：2 vCPU、4 GB RAM、20 GB 可用磁盘。小型长期运行环境建议 4 vCPU、8 GB RAM，
 并将 MySQL、Redis、Grafana 数据卷放到独立磁盘或受控备份目录。
 
-## Kubernetes 部署示例
+## Kubernetes 部署
 
-`k8s/easyops-api.yaml` 提供 API 服务的 Kubernetes Deployment / Service 示例。它用于说明
-如何把 EasyOps 自身部署到 Kubernetes，不代表 EasyOps 负责管理 Kubernetes 集群或工作负载。
-集群创建与 kubeadm / Ansible 交付见
+EasyOps 可作为 K8s 工作负载部署（**附加选项，Compose 仍是默认**）：完整 manifest
+（kustomize 组合）位于 [k8s/](k8s/kustomization.yaml)，含 MySQL/Redis/API/Celery/Web/
+Prometheus/Grafana 的 Deployment、Service、PVC 与迁移 Job，部署步骤与 Compose 取舍见
+[k8s 部署文档](docs/k8s-deployment.md)。它用于说明如何把 EasyOps 自身部署到 Kubernetes，
+不代表 EasyOps 负责管理 Kubernetes 集群或工作负载。集群创建与 kubeadm / Ansible 交付见
 [`kubernetes-cluster-bootstrap`](https://github.com/guiyi-labs/kubernetes-cluster-bootstrap)，
 集群运行期的资源、诊断和事故响应见
-[`aiops-platform`](https://github.com/guiyi-labs/aiops-platform)。该清单仍不等同于完整的生产
-高可用清单；生产部署需补充 Secret、Ingress、持久化、资源限制、探针、网络策略和滚动升级策略。
+[`aiops-platform`](https://github.com/guiyi-labs/aiops-platform)。K8s 清单不等同于完整的
+生产高可用清单；生产部署需补充 Secret 注入、Ingress、持久化存储类、资源限制与网络策略。
 
 ## CI 与本地验证
 

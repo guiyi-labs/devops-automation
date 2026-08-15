@@ -7,6 +7,13 @@
 
 ### Added
 
+- K8s 部署路径（附加选项，Compose 仍是默认）：完整 manifest（kustomize 组合）——
+  MySQL 8.0 / Redis 6 / API / Celery / Web / Prometheus / Grafana 的 Deployment、
+  Service、PVC、一次性迁移 Job 与 Secret 模板（`k8s/`），Service 命名对齐 Compose
+  DNS（api/mysql/redis/prometheus）使 nginx 代理与监控配置零改动；`docs/k8s-deployment.md`
+  说明镜像化检查结论、部署步骤、ConfigMap 注入与 Compose 取舍；README 更新为完整
+  K8s 部署章节（取代原 20 行 API 示例清单）。静态校验：kubeconform 23 资源全部 Valid。
+
 - 开源仓库门面：新增 [SECURITY.md](SECURITY.md)（支持版本 / 漏洞报告与时序 / 威胁
   模型边界——SSH host-key 固定、凭据 Fernet 加密、批量参数白名单 + preview
   确认、部署不执行项目脚本、仅校验通过备份可恢复、全新库恢复 / CI 与供应链控制 /
