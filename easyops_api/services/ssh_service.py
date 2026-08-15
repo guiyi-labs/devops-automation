@@ -66,7 +66,13 @@ class VerifyHostKeyPolicy(paramiko.MissingHostKeyPolicy):
         self.expected_fingerprint = expected_fingerprint
         self.allow_unverified = allow_unverified
 
-    def missing_host_key(self, client, hostname, host, key):
+    def missing_host_key(self, client, hostname, key=None, host=None):
+        # 兼容新旧两种调用风格：
+        #   paramiko>=5.0: missing_host_key(client, hostname, key)
+        #   paramiko<5.0 / 既有测试: missing_host_key(client, hostname, host, key)
+        # （旧风格下 host 实参是 key，key 实参是 host）
+        if key is None and host is not None:
+            key, host = host, None
         actual = _compute_fingerprint(key)
         if self.expected_fingerprint:
             if actual != self.expected_fingerprint:
@@ -80,7 +86,12 @@ class VerifyHostKeyPolicy(paramiko.MissingHostKeyPolicy):
                 hostname,
                 f'主机未登记 host key（实际指纹 {actual}），默认拒绝连接',
             )
-        client._host_keys.add(hostname, host, key)
+        # host 仅在旧风格下非空；新风格下 host=None，用 keytype 名作为存储键
+        if host is not None:
+            client._host_keys.add(hostname, host, key)
+        else:
+            keytype = key.get_name() if hasattr(key, 'get_name') else 'ssh-host-key'
+            client._host_keys.add(hostname, keytype, key)
 
 
 def _load_private_key(private_key_text: str) -> paramiko.PKey | None:

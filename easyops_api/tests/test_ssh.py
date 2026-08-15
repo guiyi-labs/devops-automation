@@ -99,6 +99,33 @@ def test_policy_accepts_matching_fingerprint():
     policy.missing_host_key(MagicMock(), 'host1', None, fake_key)  # 不抛异常
 
 
+def test_policy_accepts_paramiko5_signature():
+    """paramiko>=5.0 以 missing_host_key(client, hostname, key) 调用（无 host 实参）。
+
+    E5 真实验收（真实 SSH）暴露 paramiko 5.0 签名变化；此测试确保 4 参调用可用。
+    """
+    fake_key = MagicMock()
+    fake_key.asbytes.return_value = b'paramiko5-key-bytes'
+    fake_key.get_name.return_value = 'ssh-ed25519'
+    fp = _compute_fingerprint(fake_key)
+    policy = VerifyHostKeyPolicy(expected_fingerprint=fp, allow_unverified=False)
+    policy.missing_host_key(MagicMock(), 'host1', fake_key)  # 4 参：client, hostname, key
+
+
+def test_policy_accepts_paramiko5_unverified():
+    """paramiko5 风格下 allow_unverified=True 且无 host 实参时不抛异常并登记密钥。"""
+    fake_key = MagicMock()
+    fake_key.asbytes.return_value = b'paramiko5-uv-key'
+    fake_key.get_name.return_value = 'ssh-ed25519'
+    policy = VerifyHostKeyPolicy(allow_unverified=True)
+
+    class _FakeClient:
+        def __init__(self):
+            self._host_keys = paramiko.HostKeys()
+
+    policy.missing_host_key(_FakeClient(), 'host1', fake_key)  # 不抛异常
+
+
 def test_connect_and_run_host_key_mismatch_flow(monkeypatch):
     """集成路径：连接后密钥指纹不匹配 → HostKeyError。"""
     from config import settings

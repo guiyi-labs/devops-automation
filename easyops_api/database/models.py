@@ -199,7 +199,7 @@ class InspectionRule(Base, TimestampMixin):
     name = Column(String(100), nullable=False, unique=True)
     description = Column(String(255))
     metric = Column(String(50), nullable=False)      # disk_used_pct / swap_used_pct / load_5 / service_active / port_listening
-    operator = Column(String(10), nullable=False)     # gt / lt / eq / ne / contains / not_contains
+    operator = Column(String(20), nullable=False)     # gt / lt / eq / ne / contains / not_contains
     threshold = Column(String(100), nullable=False)   # "90" / "nginx" / "80"
     severity = Column(String(20), nullable=False, default='warning')  # warning / critical
     enabled = Column(SmallInteger, nullable=False, default=1)

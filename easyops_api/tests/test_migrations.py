@@ -157,3 +157,58 @@ def test_migration_head_matches_models(tmp_path: str) -> None:
     assert 'facts' in hi_cols
     assert 'rule_results' in hi_cols
     assert 'unavailable_reason' in hi_cols
+
+
+def _get_operator_declared_type(db_path: str) -> str | None:
+    """返回 inspection_rule.operator 列的 SQLite 类型声明。"""
+    conn = sqlite3.connect(db_path)
+    row = conn.execute('PRAGMA table_info(inspection_rule)').fetchall()
+    conn.close()
+    for col in row:
+        if col[1] == 'operator':
+            return col[2]
+    return None
+
+
+def test_migration_0005_widens_rule_operator(tmp_path: str) -> None:
+    """0005：inspection_rule.operator 从 VARCHAR(10) 加宽到 VARCHAR(20)。
+
+    真实 MySQL 严格模式暴露 not_contains（12 字符）超长；SQLite 不校验宽度，
+    所以该测试验证迁移往返 + 加宽后默认规则可完整写入。
+    """
+    db_path = os.path.join(str(tmp_path), 'rule_op.db')
+    os.environ['DATABASE_URL'] = _make_db_url(db_path)
+    _ALEMBIC_CFG.set_main_option('sqlalchemy.url', _make_db_url(db_path))
+
+    # 升到 0004（修复前宽度）
+    alembic_cmd.upgrade(_ALEMBIC_CFG, '0004')
+    assert _get_operator_declared_type(db_path) == 'VARCHAR(10)'
+
+    # 0005 加宽
+    alembic_cmd.upgrade(_ALEMBIC_CFG, '0005')
+    assert _get_operator_declared_type(db_path) == 'VARCHAR(20)'
+
+    # 加宽后默认规则（含 not_contains）可写入
+    conn = sqlite3.connect(db_path)
+    try:
+        from services.inspection_rules import default_rules
+        for rule in default_rules():
+            conn.execute(
+                'INSERT INTO inspection_rule(name, description, metric, operator, threshold, severity, enabled)'
+                ' VALUES(?,?,?,?,?,?,1)',
+                (rule['name'], rule.get('description'), rule['metric'],
+                 rule['operator'], rule['threshold'], rule['severity']),
+            )
+        conn.commit()
+        n = conn.execute('SELECT COUNT(*) FROM inspection_rule').fetchone()[0]
+        assert n == len(default_rules()), f'应写入 {len(default_rules())} 条规则，实际 {n}'
+    finally:
+        conn.close()
+
+    # 往返：downgrade 回 0004 恢复 VARCHAR(10)
+    alembic_cmd.downgrade(_ALEMBIC_CFG, '0004')
+    assert _get_operator_declared_type(db_path) == 'VARCHAR(10)'
+
+    # 重新升级到 head 保持一致
+    alembic_cmd.upgrade(_ALEMBIC_CFG, 'head')
+    assert _get_operator_declared_type(db_path) == 'VARCHAR(20)'
