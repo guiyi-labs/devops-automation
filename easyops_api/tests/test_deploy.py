@@ -204,7 +204,6 @@ def test_compose_document_binds_localhost_port_only():
 
 # ---------- E5-P2：RemoteComposeRunner 命令构造（不真正连接） ----------
 def test_remote_runner_builds_safe_commands(monkeypatch):
-    import base64
     from unittest.mock import MagicMock
 
     from services.deploy_service import RemoteComposeRunner, DeployPlan

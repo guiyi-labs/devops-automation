@@ -201,7 +201,6 @@ class RealMySQLDumpEngine:
         目标库默认 ``<db>_restore``，导入前先 DROP + CREATE，杜绝 metadata lock 死锁。
         恢复后目标库表数/行数与备份时 validation 对比即一致性证据。
         """
-        from config import settings
         target = target_database or f'{self.database}_restore'
         if not file_path or not os.path.exists(file_path):
             raise RuntimeError(f'备份文件不存在: {file_path}')

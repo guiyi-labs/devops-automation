@@ -1,7 +1,11 @@
 """E5：备份恢复测试——创建、Worker 校验、恢复一致性、保留策略（mock Celery）。"""
-from unittest.mock import patch
+import os
+from unittest.mock import MagicMock, patch
 
-from services.backup_service import BackupEngine, validate_dump_bytes, sha256_of, fake_dump_bytes
+from services.backup_service import (
+    BackupEngine, choose_backup_engine, fake_dump_bytes, gzip_open_bytes,
+    sha256_of, validate_dump_bytes, RealMySQLDumpEngine,
+)
 from tasks.backup_tasks import run_backup_job, run_restore_job
 
 
@@ -121,13 +125,6 @@ def test_backup_records_requires_login(client):
 
 
 # ---------- E5-P2：RealMySQLDumpEngine 纯单元测试（不连接真实 MySQL） ----------
-import os
-import tempfile
-from unittest.mock import patch, MagicMock
-
-from services.backup_service import (
-    RealMySQLDumpEngine, choose_backup_engine, validate_dump_bytes, gzip_open_bytes,
-)
 
 
 def _fake_mysqldump_stdout():
