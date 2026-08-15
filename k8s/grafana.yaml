@@ -1,0 +1,140 @@
+# EasyOps Grafana：Deployment + Service（NodePort 30030）+ ConfigMap 挂载
+# provisioning + dashboard JSON（与 compose 的 ./grafana 挂载一致）。
+# 注意：ConfigMap 内容来自仓库根 grafana/ 目录；修改时需保持两处同步。
+#   datasource: grafana/provisioning/datasources/prometheus.yml
+#   dashboard provider: grafana/provisioning/dashboards/easyops.yml
+#   dashboard JSON: grafana/dashboards/easyops-overview.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: grafana
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: false
+  easyops.yml: |
+    apiVersion: 1
+    providers:
+      - name: easyops
+        orgId: 1
+        folder: EasyOps
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+# dashboard JSON —— 单一事实源为 grafana/dashboards/easyops-overview.json
+# 修改时请同步此 ConfigMap 中的 key easyops-overview.json 内容。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: grafana
+data:
+  easyops-overview.json: |
+    {"title":"EasyOps 概览","uid":"easyops-overview","tags":["easyops","devops"],"timezone":"browser","editable":true,"schemaVersion":39,"version":1,"refresh":"30s","time":{"from":"now-1h","to":"now"},"panels":[{"id":1,"type":"stat","title":"请求速率","gridPos":{"h":4,"w":6,"x":0,"y":0},"targets":[{"expr":"sum(rate(http_requests_total[5m]))","legendFormat":"req/s"}]},{"id":2,"type":"stat","title":"P95 延迟","gridPos":{"h":4,"w":6,"x":6,"y":0},"targets":[{"expr":"histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))"}],"fieldConfig":{"defaults":{"unit":"s"}}},{"id":3,"type":"stat","title":"队列深度","gridPos":{"h":4,"w":6,"x":12,"y":0},"targets":[{"expr":"easyops_queue_depth{queue=\"celery\"}","legendFormat":"depth"}]},{"id":4,"type":"stat","title":"任务成功/失败","gridPos":{"h":4,"w":6,"x":18,"y":0},"targets":[{"expr":"sum(increase(easyops_exec_tasks_total{status=\"succeeded\"}[1h]))","legendFormat":"成功"},{"expr":"sum(increase(easyops_exec_tasks_total{status=\"failed\"}[1h]))","legendFormat":"失败"}]},{"id":5,"type":"timeseries","title":"请求延迟（秒）","gridPos":{"h":8,"w":12,"x":0,"y":4},"targets":[{"expr":"histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"expr":"histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"},{"expr":"histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p99"}]},{"id":6,"type":"timeseries","title":"批量执行耗时（秒）","gridPos":{"h":8,"w":12,"x":12,"y":4},"targets":[{"expr":"histogram_quantile(0.5, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"expr":"histogram_quantile(0.95, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},{"id":7,"type":"timeseries","title":"任务成功率","gridPos":{"h":8,"w":12,"x":0,"y":12},"targets":[{"expr":"sum(rate(easyops_exec_tasks_total{status=\"succeeded\"}[5m])) / (sum(rate(easyops_exec_tasks_total[5m])) + 1)","legendFormat":"成功率"}],"fieldConfig":{"defaults":{"unit":"percentunit","max":1}}},{"id":8,"type":"timeseries","title":"巡检健康分布","gridPos":{"h":8,"w":12,"x":12,"y":12},"targets":[{"expr":"easyops_host_health{status=\"healthy\"}","legendFormat":"healthy"},{"expr":"easyops_host_health{status=\"warning\"}","legendFormat":"warning"},{"expr":"easyops_host_health{status=\"critical\"}","legendFormat":"critical"},{"expr":"easyops_host_health{status=\"unknown\"}","legendFormat":"unknown"}]}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: easyops-grafana}
+  template:
+    metadata:
+      labels: {app: easyops-grafana}
+    spec:
+      containers:
+        - name: grafana
+          image: docker.m.daocloud.io/grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: "Viewer"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /var/lib/grafana/dashboards/easyops-overview.json
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning
+              readOnly: true
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /api/health, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-data
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: grafana
+spec:
+  type: NodePort
+  selector: {app: easyops-grafana}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      nodePort: 30030
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: easyops
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,27 @@
+# EasyOps Kubernetes 部署 —— kustomize 入口。
+# 用法：kubectl apply -k k8s/
+#
+# 组件：
+#   - MySQL 8.0 + Redis 6：带 PVC 的 Stateful 服务
+#   - EasyOps API / Celery / Web：Deployment（镜像 devops-automation-api:latest /
+#     devops-automation-web:latest，kind 验收前需 kind load docker-image）
+#   - 一次性迁移 Job（幂等 alembic upgrade head；API/Celery 启动命令已内含迁移）
+#   - Prometheus + Grafana：监控栈（provisioning/dashboard ConfigMap 内嵌，与根路径
+#     grafana/ 保持一致，修改需同步；prometheus.yml 与 alerts 内嵌，同理）
+#   - Secret easyops-secrets：需预先创建（见 secrets.example.yaml 与 docs/k8s-deployment.md）
+#
+# 与 Compose 主路径的取舍见 docs/k8s-deployment.md。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - mysql.yaml
+  - redis.yaml
+  - api.yaml
+  - celery.yaml
+  - web.yaml
+  - migrate-job.yaml
+  - prometheus.yaml
+  - grafana.yaml

@@ -1,0 +1,34 @@
+# EasyOps K8s 非敏感配置（ConfigMap）。
+# 敏感项（SECRET_KEY / CREDENTIAL_ENCRYPTION_KEY / MYSQL_PASSWORD / INITIAL_ADMIN_PASSWORD）
+# 由 Secret easyops-secrets 承载（见 secrets.example.yaml 与 docs/k8s-deployment.md）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: easyops-config
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/part-of: easyops-platform
+data:
+  # --- 运行环境 ---
+  APP_ENV: "development"
+  # --- MySQL（Service 命名 mysql，与 Compose 的 DNS 名一致）---
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_USER: "root"
+  MYSQL_DB: "easyops"
+  # --- Redis / Celery Broker（Service 命名 redis）---
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  CELERY_BROKER_URL: "redis://redis:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+  # --- SSH host-key 校验：默认严格（false）。K8s 网络可访问目标时才开 real 部署 ---
+  SSH_ALLOW_UNVERIFIED_HOST_KEY: "false"
+  # --- 部署执行模式：K8s 下 SSH 到外部主机默认 mock，避免未配置网络时的误执行 ---
+  DEPLOY_EXECUTION_MODE: "mock"
+  # --- 备份执行模式：mysql 客户端在容器内可直达集群内 MySQL，real 备份可用 ---
+  BACKUP_EXECUTION_MODE: "real"
+  BACKUP_STORAGE_DIR: "/var/lib/easyops/backups"
+  BACKUP_RETENTION_COUNT: "7"
+  # --- CORS：Web 走同源代理，浏览器直连 API 时按需调整 ---
+  CORS_ORIGINS: "http://localhost:8080,http://localhost:30080"

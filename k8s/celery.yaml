@@ -1,0 +1,48 @@
+# EasyOps Celery Worker：与 API 共用镜像与迁移，消费 Redis broker。
+# 注意：backups PVC 为 ReadWriteOnce，单节点（kind/单 worker 节点）下 api+celery
+# 可同挂；多节点生产环境请改用 ReadWriteMany 存储类或拆分为每副本独立 PVC
+# （见 docs/k8s-deployment.md「与 Compose 的取舍」）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: easyops-celery
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: celery
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: easyops-celery}
+  template:
+    metadata:
+      labels: {app: easyops-celery}
+    spec:
+      containers:
+        - name: celery
+          image: devops-automation-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "alembic upgrade head && celery -A tasks.celery_app.celery worker -l INFO --concurrency=8"]
+          envFrom:
+            - configMapRef: {name: easyops-config}
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: MYSQL_PASSWORD}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: SECRET_KEY}
+            - name: CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: CREDENTIAL_ENCRYPTION_KEY}
+            - name: BATCH_CONCURRENCY
+              value: "8"
+            - name: EXEC_TASK_HARD_TIMEOUT
+              value: "90"
+          volumeMounts:
+            - name: backups
+              mountPath: /var/lib/easyops/backups
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: backups

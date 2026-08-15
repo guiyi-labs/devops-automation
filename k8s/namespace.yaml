@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/part-of: easyops-platform

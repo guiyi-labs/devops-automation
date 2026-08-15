@@ -1,0 +1,88 @@
+# EasyOps API：Deployment（多副本）+ Service（命名 api，保持 nginx proxy_pass
+# 与 prometheus targets 的 DNS 一致）+ 备份卷（与 celery 共享）。
+# 启动前执行 Alembic 迁移（幂等，与 Compose 对齐；一次性迁移也可用 migrate-job）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: easyops-api
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: easyops-api}
+  template:
+    metadata:
+      labels: {app: easyops-api}
+    spec:
+      containers:
+        - name: api
+          image: devops-automation-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
+          envFrom:
+            - configMapRef: {name: easyops-config}
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: MYSQL_PASSWORD}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: SECRET_KEY}
+            - name: CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: CREDENTIAL_ENCRYPTION_KEY}
+            - name: INITIAL_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: easyops-secrets, key: INITIAL_ADMIN_PASSWORD}
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: backups
+              mountPath: /var/lib/easyops/backups
+          readinessProbe:
+            httpGet: {path: /health/live, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: backups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: api
+spec:
+  selector: {app: easyops-api}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# api/celery 共享的备份持久卷（Compose backup_data 的 K8s 对应物）。
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backups
+  namespace: easyops
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

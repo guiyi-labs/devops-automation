@@ -1,0 +1,86 @@
+# MySQL 8.0（与 Compose 默认 5.7 不同：8.0 提供多架构镜像，本项目本机已验证 8.0）。
+# Compose 的 mysql_data 卷 → K8s PVC；启动参数与 healthcheck 对齐 Compose。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: easyops-mysql}
+  template:
+    metadata:
+      labels: {app: easyops-mysql}
+    spec:
+      containers:
+        - name: mysql
+          image: docker.m.daocloud.io/library/mysql:8.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: easyops-secrets
+                  key: MYSQL_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: easyops-config
+                  key: MYSQL_DB
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD >/dev/null 2>&1"]
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: easyops
+  labels:
+    app.kubernetes.io/name: easyops
+    app.kubernetes.io/component: mysql
+spec:
+  selector: {app: easyops-mysql}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data
+  namespace: easyops
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
