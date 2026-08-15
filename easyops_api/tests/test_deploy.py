@@ -171,3 +171,123 @@ def test_deploy_templates_list(client, admin_token):
     resp = client.get('/api/v1/deploy/templates', headers=_auth(admin_token))
     assert resp.status_code == 200
     assert 'compose-web' in resp.json()['templates']
+
+
+# ---------- E5-P2：plan 校验边界 ----------
+def test_validate_plan_rejects_bad_inputs():
+    from services.deploy_service import DeployPlan, validate_plan
+    import pytest
+
+    cases = [
+        {'image': 'UPPER/NO', 'version': '1', 'port': 8080},
+        {'image': 'easyops/a', 'version': 'v1; rm -rf /', 'port': 8080},
+        {'image': 'easyops/a', 'version': '1', 'port': 80},      # 端口 < 1024
+        {'image': 'easyops/a', 'version': '1', 'port': 70000},   # 端口 > 65535
+        {'image': 'easyops/a', 'version': '1', 'port': 8080, 'template': 'unknown-tpl'},
+    ]
+    for kw in cases:
+        template = kw.pop('template', 'compose-web')
+        plan = DeployPlan(project_id=1, template=template, steps=['pull'], **kw)
+        with pytest.raises(ValueError):
+            validate_plan(plan)
+
+
+def test_compose_document_binds_localhost_port_only():
+    from services.deploy_service import DeployPlan, _compose_document
+    plan = DeployPlan(project_id=1, template='compose-web', image='easyops/nginx', version='1.2', port=9090,
+                      steps=['up'])
+    doc = _compose_document(plan)
+    assert 'image: easyops/nginx:1.2' in doc
+    assert '127.0.0.1:9090:80' in doc
+    assert 'restart: unless-stopped' in doc
+
+
+# ---------- E5-P2：RemoteComposeRunner 命令构造（不真正连接） ----------
+def test_remote_runner_builds_safe_commands(monkeypatch):
+    import base64
+    from unittest.mock import MagicMock
+
+    from services.deploy_service import RemoteComposeRunner, DeployPlan
+
+    plan = DeployPlan(project_id=42, template='compose-web', image='easyops/demo', version='v2.1', port=9090,
+                      steps=['pull', 'up', 'healthcheck'], target_asset_id=7)
+    asset = MagicMock()
+    asset.ip_address = '192.0.2.10'
+    asset.ssh_port = 22
+    asset.ssh_user = 'easyops-lab'
+    asset.host_key_fingerprint = 'sha256:abcdef'
+
+    captured = []
+
+    def fake_connect_and_run(*args, **kwargs):
+        captured.append((args, kwargs))
+        return {'stdout': 'ok', 'stderr': ''}
+
+    monkeypatch.setattr('services.deploy_service.connect_and_run', fake_connect_and_run)
+    runner = RemoteComposeRunner(asset=asset, plan=plan, release_id=99,
+                                 password=None, private_key=None)
+
+    # up 命令必须只包含允许的操作
+    up_cmd = runner._up_command()
+    assert 'docker compose -p easyops-p42' in up_cmd
+    assert 'easyops/demo:v2.1' in up_cmd
+    assert 'base64 -d' in up_cmd   # compose 内容经 base64 传
+    assert ';' in up_cmd
+    # 不允许的项目脚本不出现
+    assert 'build_script' not in up_cmd and 'deploy_script' not in up_cmd
+
+    # 非法步骤
+    try:
+        runner('evil', {})
+        raise AssertionError('should raise')
+    except ValueError:
+        pass
+
+    # build 步骤不执行任何命令
+    assert runner('build', {}) == '模板使用固定镜像；未执行项目 build_script/deploy_script'
+
+
+# ---------- E5-P2：real 模式 fail-closed ----------
+def _force_real_executor(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, 'DEPLOY_EXECUTION_MODE', 'real')
+
+
+def test_resolve_runner_fail_closed_without_target(monkeypatch):
+    from tasks import deploy_tasks
+    from services.deploy_service import DeployPlan
+
+    _force_real_executor(monkeypatch)
+    plan = DeployPlan(project_id=1, template='compose-web', image='easyops/a', version='1', port=8080,
+                      steps=['pull'], target_asset_id=None)
+    try:
+        deploy_tasks._resolve_runner(None, plan, release_id=1)
+        raise AssertionError('should raise for missing target_asset_id')
+    except RuntimeError as exc:
+        assert 'target_asset_id' in str(exc)
+
+
+def test_resolve_runner_fails_for_unregistered_asset(monkeypatch):
+    from tasks import deploy_tasks
+    from services.deploy_service import DeployPlan
+
+    _force_real_executor(monkeypatch)
+    plan = DeployPlan(project_id=1, template='compose-web', image='easyops/a', version='1', port=8080,
+                      steps=['pull'], target_asset_id=7)
+    # mock db：资产不存在
+    class _FakeQuery:
+        def filter(self, *a, **kw):
+            return self
+
+        def first(self):
+            return None
+
+    class _FakeDb:
+        def query(self, model):
+            return _FakeQuery()
+
+    try:
+        deploy_tasks._resolve_runner(_FakeDb(), plan, release_id=1)
+        raise AssertionError('should raise for missing asset')
+    except RuntimeError as exc:
+        assert '目标资产不存在' in str(exc)

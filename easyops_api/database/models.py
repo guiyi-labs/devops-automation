@@ -108,6 +108,9 @@ class DeployProject(Base):
     git_branch = Column(String(50), nullable=False, default='main')
     build_script = Column(Text)
     deploy_script = Column(Text)
+    # E5-P2：真实发布只能绑定已登记、带 host-key 与加密凭据的资产。
+    # 没有目标资产的历史项目仍可浏览，但 real executor 会 fail-closed。
+    target_asset_id = Column(Integer, ForeignKey('server_asset.id'), nullable=True, index=True)
     env_type = Column(String(20), nullable=False)
     status = Column(SmallInteger, nullable=False, default=1)
     create_time = Column(DateTime, nullable=False, server_default=func.now())

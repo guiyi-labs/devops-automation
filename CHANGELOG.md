@@ -27,6 +27,28 @@
     `BackupRestore.vue`（路由 `/backup`，备份/恢复/校验详情）；`api/deploy.js` 扩展。
   - 测试：E5 新增 21 项（部署预览/发布/回滚/白名单/Worker、备份校验/恢复/保留/权限、
     迁移 0004），pytest 全量 100 → 121。
+  - E5-P2 真实部署与恢复验收（`feat/e5-phase2-real-acceptance`）：
+  - 受控部署执行真实化（`services/deploy_service.py` +
+    `tasks/deploy_tasks.py`）：`RemoteComposeRunner` 真实 SSH 远程部署
+    （host-key 校验、密钥认证、compose 文档仅由固定模板 + base64 生成，不执行项目
+    任意 build_script/deploy_script）；`DeployProject.target_asset_id` 绑定目标资产
+    （迁移 0006 + MySQL/SQLite 双路），`DEPLOY_EXECUTION_MODE` 控制 mock/real。
+  - 备份/恢复真实化（`services/backup_service.py` + `tasks/backup_tasks.py`）：
+    `RealMySQLDumpEngine` 容器内 `mysqldump --single-transaction --routines
+    --triggers` → `.sql` + `.sql.gz` + `.sha256` 三件套持久化到共享卷
+    `BACKUP_STORAGE_DIR`，gzip/SHA-256/一致性校验，`BACKUP_RETENTION_COUNT`
+    保留策略；恢复改为**全新目标库**（DROP+CREATE easyops_restore）杜绝与运行中
+    表 metadata lock 死锁；`--skip-ssl` 兼容 MySQL 8 自签名证书；api/celery 双容器
+    共享 backup_data 卷；损坏/篡改备份校验层拒绝且不覆盖最后有效备份。
+  - 同步巡检端点（`api/v1/inspection.py` `POST /collect/sync`）：uvicorn 进程内
+    真实 SSH 巡检并记录 Prometheus 指标（`easyops_inspection_hosts_total` /
+    `inspection_duration` / `easyops_host_health`），绕过 worker 进程指标不被
+    scrape 局限。
+  - 真实验收（两台 Ubuntu 24.04 Lima VM）：部署→healthcheck→失败发布→回滚到
+    最后有效 release、MySQL 备份→gzip/SHA-256/一致性→删除测试数据→全新恢复→
+    表/行/字段一致性 → 损坏备份保护；Prometheus 真实指标 / Grafana 面板配置。
+  - 测试：E5-P2 新增 14 项（deploy runner 接线/迁移 0006/backup real/恢复全新库/
+    参数化 SSH），pytest 全量 121 → 135。
   - 主机巡检与监控（E4）：
   - SSH 只读事实采集（`services/host_inspection.py`）：一次会话多探测（OS/内核/
     uptime/CPU/load/内存/swap/磁盘+inode/监听端口/运行服务），逐探测容错，
