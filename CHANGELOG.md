@@ -7,6 +7,12 @@
 
 ### Added
 
+- 开源仓库门面：新增 [SECURITY.md](SECURITY.md)（支持版本 / 漏洞报告与时序 / 威胁
+  模型边界——SSH host-key 固定、凭据 Fernet 加密、批量参数白名单 + preview
+  确认、部署不执行项目脚本、仅校验通过备份可恢复、全新库恢复 / CI 与供应链控制 /
+  凭据处理与脱敏）与 [CONTRIBUTING.md](CONTRIBUTING.md)（前置 / 上手 / 代码规范 /
+  Alembic 双路迁移约定 / PR 流程 / noreply 提交身份 / 变更记录）；README 链接两者。
+
 - 部署、备份与恢复（E5）：
   - 受控部署计划（`services/deploy_service.py` + `deploy_templates/compose-web/`）：
     预览计划（pull/build/up/healthcheck 固定步骤）、步骤白名单（非法步骤立即中止）、

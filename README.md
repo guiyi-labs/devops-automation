@@ -104,6 +104,12 @@ docker compose ps
 admin）；`Swagger /docs` 默认开放；真实 Linux 演练、备份恢复与截图证据归 E4/E6，
 README 不宣称生产级。
 
+### 安全与贡献
+
+- 漏洞报告、支持版本、威胁模型边界、CI/供应链控制见
+  [SECURITY.md](SECURITY.md)
+- 开发环境、代码规范、PR 流程、提交约定见 [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## Linux 部署
 
 Linux 部署、端口规划、组件连接、备份恢复与故障排查见：
