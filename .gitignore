@@ -35,3 +35,6 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.swp
+
+# 本地 Compose 覆盖（Apple Silicon 控制端用 mysql:8.0）
+docker-compose.override.yml
