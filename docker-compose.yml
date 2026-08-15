@@ -44,7 +44,13 @@ services:
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-admin123}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       SSH_ALLOW_UNVERIFIED_HOST_KEY: ${SSH_ALLOW_UNVERIFIED_HOST_KEY:-false}
+      DEPLOY_EXECUTION_MODE: ${DEPLOY_EXECUTION_MODE:-real}
+      BACKUP_EXECUTION_MODE: ${BACKUP_EXECUTION_MODE:-real}
+      BACKUP_STORAGE_DIR: /var/lib/easyops/backups
+      BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-7}
     ports: ["8000:8000"]
+    volumes:
+      - backup_data:/var/lib/easyops/backups
     depends_on:
       mysql:
         condition: service_healthy
@@ -72,12 +78,18 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       BATCH_CONCURRENCY: ${BATCH_CONCURRENCY:-8}
       EXEC_TASK_HARD_TIMEOUT: ${EXEC_TASK_HARD_TIMEOUT:-90}
+      DEPLOY_EXECUTION_MODE: ${DEPLOY_EXECUTION_MODE:-real}
+      BACKUP_EXECUTION_MODE: ${BACKUP_EXECUTION_MODE:-real}
+      BACKUP_STORAGE_DIR: /var/lib/easyops/backups
+      BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-7}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    volumes:
+      - backup_data:/var/lib/easyops/backups
   web:
     build: ./easyops_web
     ports: ["8080:80"]
@@ -114,3 +126,4 @@ volumes:
   mysql_data:
   redis_data:
   grafana_data:
+  backup_data:

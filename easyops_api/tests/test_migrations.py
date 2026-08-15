@@ -212,3 +212,50 @@ def test_migration_0005_widens_rule_operator(tmp_path: str) -> None:
     # 重新升级到 head 保持一致
     alembic_cmd.upgrade(_ALEMBIC_CFG, 'head')
     assert _get_operator_declared_type(db_path) == 'VARCHAR(20)'
+
+
+def test_migration_0006_adds_deploy_target_asset(tmp_path: str) -> None:
+    """0006：deploy_project 增加可空 target_asset_id（绑定已登记资产）与索引。
+
+    E5-P2 真实部署必须指向已登记资产；历史 mock 项目列保持可空。
+    """
+    db_path = os.path.join(str(tmp_path), 'deploy_target.db')
+    os.environ['DATABASE_URL'] = _make_db_url(db_path)
+    _ALEMBIC_CFG.set_main_option('sqlalchemy.url', _make_db_url(db_path))
+    os.environ['BACKUP_EXECUTION_MODE'] = 'mock'
+    os.environ['DEPLOY_EXECUTION_MODE'] = 'mock'
+
+    alembic_cmd.upgrade(_ALEMBIC_CFG, '0005')
+    assert 'target_asset_id' not in _get_columns(db_path, 'deploy_project')
+
+    alembic_cmd.upgrade(_ALEMBIC_CFG, '0006')
+    cols = _get_columns(db_path, 'deploy_project')
+    assert 'target_asset_id' in cols
+
+    # 索引存在
+    conn = sqlite3.connect(db_path)
+    indexes = {r[1] for r in conn.execute(
+        'SELECT * FROM sqlite_master WHERE type="index" AND tbl_name="deploy_project"'
+    )}
+    conn.close()
+    assert any('target_asset_id' in (i or '') for i in indexes), f'缺少 target_asset_id 索引: {indexes}'
+
+    # 插入带目标资产的项目（可空列不破坏既有行）
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO deploy_project(project_name, git_url, git_branch, env_type)"
+            " VALUES('legacy', 'https://x/y.git', 'main', 'dev')"
+        )
+        conn.commit()
+        assert conn.execute('SELECT COUNT(*) FROM deploy_project').fetchone()[0] == 1
+    finally:
+        conn.close()
+
+    # 往返：downgrade 移除列
+    alembic_cmd.downgrade(_ALEMBIC_CFG, '0005')
+    assert 'target_asset_id' not in _get_columns(db_path, 'deploy_project')
+
+    # 重升到 head 保持一致
+    alembic_cmd.upgrade(_ALEMBIC_CFG, 'head')
+    assert 'target_asset_id' in _get_columns(db_path, 'deploy_project')

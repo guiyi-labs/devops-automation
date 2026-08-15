@@ -53,11 +53,24 @@ class Settings(BaseSettings):
     # - break_glass 任意命令默认关闭；仅 admin 可经 API 打开
     BREAK_GLASS_DEFAULT: bool = os.getenv('BREAK_GLASS_DEFAULT', 'false').lower() == 'true'
 
+    # E5 第二阶段：真实执行必须由 Compose 显式开启。默认 mock 保持本地单元测试
+    # 与未配置环境的可预测性，避免误在未知主机或数据库上执行写操作。
+    DEPLOY_EXECUTION_MODE: str = os.getenv('DEPLOY_EXECUTION_MODE', 'mock').lower()
+    BACKUP_EXECUTION_MODE: str = os.getenv('BACKUP_EXECUTION_MODE', 'mock').lower()
+    BACKUP_STORAGE_DIR: str = os.getenv('BACKUP_STORAGE_DIR', '/var/lib/easyops/backups')
+    BACKUP_RETENTION_COUNT: int = int(os.getenv('BACKUP_RETENTION_COUNT', '7'))
+
     def is_production(self) -> bool:
         return self.APP_ENV.lower() in ('production', 'prod')
 
     def get_cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(',') if origin.strip()]
+
+    def deploy_uses_real_executor(self) -> bool:
+        return self.DEPLOY_EXECUTION_MODE == 'real'
+
+    def backup_uses_real_executor(self) -> bool:
+        return self.BACKUP_EXECUTION_MODE == 'real'
 
 
 # 明显的开发/演示默认值，生产环境必须替换

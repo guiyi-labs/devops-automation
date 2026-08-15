@@ -215,6 +215,7 @@ class DeployProjectCreate(BaseModel):
     git_branch: str = 'main'
     build_script: str | None = None
     deploy_script: str | None = None
+    target_asset_id: int | None = None
     env_type: str = 'dev'
     status: int = 1
 
