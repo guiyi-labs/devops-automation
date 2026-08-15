@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy import text
 
-from api.v1 import alert, asset, cron_task, deploy, docker_k8s, exec_task, user
+from api.v1 import alert, asset, cron_task, deploy, docker_k8s, exec_task, inspection, user
 from common.redact import LogRedactFilter, redact
 from config import settings
 from database import models  # noqa
@@ -39,6 +39,7 @@ app.include_router(docker_k8s.router, prefix='/api/v1/container', tags=['容器�
 app.include_router(deploy.router, prefix='/api/v1/deploy', tags=['CI/CD部署'])
 app.include_router(alert.router, prefix='/api/v1/alert', tags=['监控告警'])
 app.include_router(cron_task.router, prefix='/api/v1/cron', tags=['定时任务'])
+app.include_router(inspection.router, prefix='/api/v1/inspection', tags=['主机巡检'])
 
 Instrumentator().instrument(app).expose(app)
 

@@ -158,3 +158,48 @@ class SystemFlag(Base):
     flag_key = Column(String(50), nullable=False, unique=True)
     flag_value = Column(String(255), nullable=False)
     update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HostInspection(Base, TimestampMixin):
+    """单次主机巡检结果：一次 SSH 采集的事实与规则判定。"""
+
+    __tablename__ = 'host_inspection'
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey('inspection_record.id'), nullable=True, index=True)
+    asset_id = Column(Integer, ForeignKey('server_asset.id'), nullable=False, index=True)
+    host = Column(String(50), nullable=False)
+    overall_status = Column(String(20), nullable=False, default='unknown')
+    facts = Column(Text)              # JSON：采集到的结构化事实
+    rule_results = Column(Text)       # JSON：规则判定明细
+    observed_at = Column(DateTime, nullable=True)
+    source = Column(String(20), nullable=False, default='ssh')
+    timeout_ms = Column(Integer, nullable=True)
+    unavailable_reason = Column(String(512), nullable=True)
+
+
+class InspectionRecord(Base, TimestampMixin):
+    """批量巡检任务记录：一次触发可能覆盖多台主机。"""
+
+    __tablename__ = 'inspection_record'
+    id = Column(Integer, primary_key=True, index=True)
+    asset_ids = Column(String(512), nullable=False)
+    status = Column(String(20), nullable=False, default='running')
+    total_hosts = Column(Integer, nullable=False, default=0)
+    succeeded = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    unknown = Column(Integer, nullable=False, default=0)
+    exec_user = Column(String(50), nullable=False)
+
+
+class InspectionRule(Base, TimestampMixin):
+    """可配置巡检规则：metric + operator + threshold → severity。"""
+
+    __tablename__ = 'inspection_rule'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(String(255))
+    metric = Column(String(50), nullable=False)      # disk_used_pct / swap_used_pct / load_5 / service_active / port_listening
+    operator = Column(String(10), nullable=False)     # gt / lt / eq / ne / contains / not_contains
+    threshold = Column(String(100), nullable=False)   # "90" / "nginx" / "80"
+    severity = Column(String(20), nullable=False, default='warning')  # warning / critical
+    enabled = Column(SmallInteger, nullable=False, default=1)

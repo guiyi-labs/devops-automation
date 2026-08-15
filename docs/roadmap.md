@@ -12,7 +12,7 @@
 | E1 | 安全与配置基线（P0） | ✅ 已完成（PR #1） |
 | E2 | 测试与运行基线（P0） | ✅ 已完成（PR #2） |
 | E3 | 受控批量运维（P0） | ✅ 已完成（本分支 PR） |
-| E4 | Linux 主机巡检与监控（P1） | ⏳ 待开始 |
+| E4 | Linux 主机巡检与监控（P1） | ✅ 已完成（本分支 PR，真实 VM 演练待 E6 前补） |
 | E5 | 部署、备份与恢复（P1） | ⏳ 待开始 |
 | E6 | 交付与展示（P1） | ⏳ 待开始 |
 
@@ -86,10 +86,30 @@
 - [x] Alembic `0002` 迁移（SQLite batch 重建 + MySQL ALTER），含往返测试
 - [x] 全量 pytest 77 项通过；覆盖率全局 85% / 安全模块 91%；pip-audit、npm audit 0 漏洞
 
-## E4 主机巡检与监控（待开始）
+## E4 主机巡检与监控（已完成）
 
-- [ ] 主机事实采集与巡检规则（healthy/warning/critical/unknown）
-- [ ] API/Worker 指标、Grafana dashboard、告警规则
+> 目标：为主机健康提供可解释的事实与规则判定，补齐 Prometheus/Grafana 可观测与告警。
+> 实施细节见 `docs/changes/2026-08-15-e4-host-inspection.md`。
+> 说明：本阶段验收为 mock/单测 + 静态/构建证据；真实 ≥2 台 Linux VM 复现正常/异常、
+> Prometheus 真实指标与 Grafana 截图，按环境实验规范在 E6 交付前补做并归档。
+
+- [x] 主机事实采集（SSH 只读多探测）：OS/内核/uptime/主机名、CPU/load、
+      内存/swap、磁盘容量+inode+高占用目录、端口监听/关键进程/systemd 服务，
+      结果带 `observed_at`/来源/超时/不可用原因（`services/host_inspection.py`）
+- [x] 巡检规则引擎：磁盘/inode 高水位、load 持续过高、swap 异常、关键服务停止、
+      端口未监听；结果 healthy/warning/critical/unknown，缺数据固定 unknown
+      （`services/inspection_rules.py`）
+- [x] 巡检 API + Celery Worker + Alembic `0003` 迁移（`inspection_record` /
+      `host_inspection` / `inspection_rule`），规则 CRUD 与默认种子
+- [x] API/Worker 自定义指标：请求量/延迟/队列/成功率/失败率/执行时长
+      （`services/metrics.py` + `tasks/metrics_tasks.py`）
+- [x] Grafana dashboard（`grafana/easyops-overview.json`，provisioning 自动注册）+
+      Prometheus 告警规则（`prometheus-alerts.yml`：API 不可用/队列积压/
+      失败率/DB 连接/critical 主机）
+- [x] 前端 `HostInspection.vue`：巡检采集（记录列表/逐主机详情，采集时间必显）+
+      规则管理
+- [x] 全量 pytest 100 项通过（新增 23）；覆盖率全局 86% / 安全模块 91%；
+      Ruff、pip-audit、npm audit、compose config、前端生产构建全绿
 
 ## E5 部署、备份与恢复（待开始）
 

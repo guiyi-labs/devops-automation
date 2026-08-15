@@ -1,0 +1,72 @@
+{
+  "title": "EasyOps 概览",
+  "uid": "easyops-overview",
+  "tags": ["easyops", "devops"],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "请求速率",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "req/s" }]
+    },
+    {
+      "id": 2, "type": "stat", "title": "P95 延迟",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "队列深度",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "easyops_queue_depth{queue=\"celery\"}", "legendFormat": "depth" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "任务成功/失败",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(easyops_exec_tasks_total{status=\"succeeded\"}[1h]))", "legendFormat": "成功" },
+        { "expr": "sum(increase(easyops_exec_tasks_total{status=\"failed\"}[1h]))", "legendFormat": "失败" }
+      ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "请求延迟（秒）",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "批量执行耗时（秒）",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "任务成功率",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "sum(rate(easyops_exec_tasks_total{status=\"succeeded\"}[5m])) / (sum(rate(easyops_exec_tasks_total[5m])) + 1)", "legendFormat": "成功率" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "巡检健康分布",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        { "expr": "easyops_host_health{status=\"healthy\"}", "legendFormat": "healthy" },
+        { "expr": "easyops_host_health{status=\"warning\"}", "legendFormat": "warning" },
+        { "expr": "easyops_host_health{status=\"critical\"}", "legendFormat": "critical" },
+        { "expr": "easyops_host_health{status=\"unknown\"}", "legendFormat": "unknown" }
+      ]
+    }
+  ]
+}

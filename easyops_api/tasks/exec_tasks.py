@@ -14,16 +14,21 @@ from tasks.celery_app import celery
 )
 def exec_host_result(self, record_id: int, asset_id: int) -> dict:
     """执行一台主机的受控任务，结果写回 exec_host_result 并聚合到 exec_record。"""
+    import time
+
     from common.crypto import decrypt_value
     from common.redact import redact
     from database.models import ExecHostResult, ExecRecord, ServerAsset
     from database.session import SessionLocal
+    from services.metrics import record_exec
     from services.ssh_service import (
         AuthError, ConnectionTimeoutError, HostKeyError, RemoteCommandError,
         UnknownHostKeyError, UnreachableError, connect_and_run,
     )
 
+    started = time.monotonic()
     db = SessionLocal()
+    host_row = None
     try:
         record = db.query(ExecRecord).filter(ExecRecord.id == record_id).first()
         if not record:
@@ -93,6 +98,8 @@ def exec_host_result(self, record_id: int, asset_id: int) -> dict:
             db.commit()
             return {'host': host_row.host, 'error': host_row.error, 'status': 2}
     finally:
+        # 指标：无论成败都记录耗时与状态
+        record_exec(time.monotonic() - started, getattr(host_row, 'status', 'queued') if host_row else 'missing')
         _recompute_record(db, record_id)
         db.close()
 
