@@ -56,14 +56,48 @@ class ServerAsset(Base, TimestampMixin):
 
 
 class ExecRecord(Base):
+    """批量任务：一次用户发起的受控执行。包含幂等键与确认令牌。"""
+
     __tablename__ = 'exec_record'
     id = Column(Integer, primary_key=True, index=True)
     asset_ids = Column(String(255), nullable=False)
-    command = Column(Text, nullable=False)
+    # 操作类型: fixed(受控操作目录) | break_glass(任意命令，仅 admin)
+    exec_type = Column(String(20), nullable=False, default='fixed')
+    operation = Column(String(50))                  # fixed 时对应操作目录键
+    params = Column(Text)                           # JSON 存储参数
+    command = Column(Text, nullable=False)          # 规范化后的最终命令（脱敏安全）
     exec_user = Column(String(50), nullable=False)
-    exec_status = Column(SmallInteger, nullable=False, default=0)
+    # 状态: pending(待确认) | confirmed(已确认待执行) | running | done | cancelled
+    status = Column(String(20), nullable=False, default='pending')
+    idempotency_key = Column(String(128), index=True)  # 幂等键（防重复提交）
+    confirm_token = Column(String(64))              # 预览确认令牌，确认后清空
+    worker_concurrency = Column(Integer, nullable=False, default=5)
+    total_hosts = Column(Integer, nullable=False, default=0)
+    succeeded = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    running = Column(Integer, nullable=False, default=0)
+    timed_out = Column(Integer, nullable=False, default=0)
     exec_result = Column(Text)
     create_time = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class ExecHostResult(Base):
+    """批任务单主机结果：每次针对一台主机的一次受控执行的状态与输出。"""
+
+    __tablename__ = 'exec_host_result'
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey('exec_record.id'), nullable=False, index=True)
+    asset_id = Column(Integer, nullable=False, index=True)
+    host = Column(String(50), nullable=False)
+    # 状态: queued | running | succeeded | failed | timed_out | cancelled
+    status = Column(String(20), nullable=False, default='queued')
+    exit_code = Column(Integer)
+    stdout = Column(Text)
+    stderr = Column(Text)
+    error_type = Column(String(50))
+    error = Column(Text)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class DeployProject(Base):

@@ -7,6 +7,8 @@
 # 命令示例：
 #   DATABASE_URL=sqlite:///easyops.db alembic upgrade head
 #   DATABASE_URL=mysql+pymysql://root:pass@127.0.0.1:3306/easyops alembic upgrade head
+import os
+
 from alembic import context
 from sqlalchemy import create_engine
 
@@ -16,9 +18,10 @@ from database.session import Base
 
 target_metadata = Base.metadata
 
-if settings.DATABASE_URL:
-    DATABASE_URL = settings.DATABASE_URL
-else:
+# 迁移连接优先读取实时 DATABASE_URL（env.py 每次执行都重新读取，CI/测试可用
+# 环境变量注入；与 CLI 行为一致），未设置时回退到 config.Settings 的 MySQL 连接串
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
     DATABASE_URL = (
         f'mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}'
         f'@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DB}?charset=utf8mb4'

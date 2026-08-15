@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     # SSH host key：false 时未登记指纹的主机默认拒绝连接
     SSH_ALLOW_UNVERIFIED_HOST_KEY: bool = os.getenv('SSH_ALLOW_UNVERIFIED_HOST_KEY', 'false').lower() == 'true'
 
+    # E3 受控批量执行：
+    # - 单任务资产上限（前端/后端双重校验）
+    BATCH_MAX_ASSETS: int = 50
+    # - 单任务 Celery Worker 并发上限
+    BATCH_CONCURRENCY: int = int(os.getenv('BATCH_CONCURRENCY', '8'))
+    # - Celery 硬超时（秒），超过则任务被终止并记为 failed
+    EXEC_TASK_HARD_TIMEOUT: int = int(os.getenv('EXEC_TASK_HARD_TIMEOUT', '90'))
+    # - break_glass 任意命令默认关闭；仅 admin 可经 API 打开
+    BREAK_GLASS_DEFAULT: bool = os.getenv('BREAK_GLASS_DEFAULT', 'false').lower() == 'true'
+
     def is_production(self) -> bool:
         return self.APP_ENV.lower() in ('production', 'prod')
 
