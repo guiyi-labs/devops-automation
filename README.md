@@ -14,6 +14,17 @@ EasyOps 将日常系统运维中的资产管理、批量操作、容器主机查
 同一个控制台。当前以 Docker Compose 单机部署为主要验证路径，适合作为系统运维和 DevOps
 方向的实践项目。Kubernetes 只作为 EasyOps 自身的可选部署环境，不作为本项目的管理对象。
 
+## 与相关项目的边界
+
+| 阶段 | 仓库 | 负责什么 |
+|---|---|---|
+| Day 0/1 | [`kubernetes-cluster-bootstrap`](https://github.com/guiyi-labs/kubernetes-cluster-bootstrap) | Linux 节点预检、containerd/kubeadm、节点加入、CNI/HA、集群验收与交付 |
+| Day 1 运行期 | **`devops-automation`**（本仓库） | Linux 主机：资产管理、批量运维、主机巡检、受控部署、备份恢复、告警 |
+| Day 2 Kubernetes 运行期 | [`aiops-platform`](https://github.com/guiyi-labs/aiops-platform) | 多集群可观测、诊断、事故响应与受控修复 |
+| 网络设备运行期 | [`netcheck-platform`](https://github.com/guiyi-labs/netcheck-platform) | 网络资产、巡检、配置证据、告警与拓扑 |
+
+本仓库**不**承担 Kubernetes 集群管理或 AIOps；Linux 主机创建与长期运维在本仓库，运行期平台通过脱敏验收结果和注册信息交接集群。
+
 ## 已实现能力
 
 | 方向 | 当前能力 | 主要实现位置 |
