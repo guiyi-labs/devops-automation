@@ -139,6 +139,25 @@ def _fake_mysqldump_stdout():
     ).encode('utf-8')
 
 
+def test_real_engine_persist_unique_filenames_same_millisecond(tmp_path):
+    """连续 persist 不得覆盖——文件名用完整微秒时间戳保证唯一。"""
+    from services.backup_service import RealMySQLDumpEngine
+
+    engine = RealMySQLDumpEngine(
+        storage_dir=str(tmp_path), retention_count=10, database='testdb',
+    )
+
+    r1 = engine.persist(b'-- data 1\n')
+    r2 = engine.persist(b'-- data 2\n')
+
+    assert os.path.basename(r1['file_path']) != os.path.basename(r2['file_path']), \
+        f'两次 persist 文件名必须不同：{r1["file_path"]} vs {r2["file_path"]}'
+    assert os.path.exists(r1['file_path']), '第一次 persist 文件应存在'
+    assert os.path.exists(r2['file_path']), '第二次 persist 文件应存在'
+    gz_files = sorted(f for f in os.listdir(tmp_path) if f.endswith('.sql.gz'))
+    assert len(gz_files) == 2, f'retention=10 应有 2 个 gz 文件，实际 {gz_files}'
+
+
 def _fake_mysql_count_output(tables='1'):
     """返回信息模式查询的假行数输出。"""
     stdout = MagicMock()

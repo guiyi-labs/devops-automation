@@ -147,7 +147,8 @@ class RealMySQLDumpEngine:
         """把 SQL 写入 BACKUP_STORAGE_DIR/<ts>.sql（本实现同时保留 .sql.gz 与摘要）。"""
         os.makedirs(self.storage_dir, mode=0o750, exist_ok=True)
         from datetime import datetime
-        ts = datetime.now().strftime('%Y%m%d-%H%M%S-%f')[:-3]
+        # 完整微秒精度：同一毫秒连续多次 persist 也不会文件名重叠（覆盖丢数据）
+        ts = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
         base = os.path.join(self.storage_dir, f'easyops-{ts}')
         raw_path = f'{base}.sql'
         gz_path = f'{base}.sql.gz'
