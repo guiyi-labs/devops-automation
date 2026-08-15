@@ -75,7 +75,9 @@ jobs:
       - name: Kubernetes manifest schema check (kubeconform)
         run: |
           curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
-          ./kubeconform -strict -summary k8s/
+          # kustomization.yaml 是 kustomize 组装文件（非 K8s 资源 schema），精确跳过；
+          # 其余 k8s/ 下资源仍以 -strict 全量校验。
+          ./kubeconform -strict -summary -ignore-filename-pattern 'kustomization\.yaml' k8s/
       - name: Check env example reference
         run: test -f .env.example && echo "env example ok"
       - name: README / docs relative link check
