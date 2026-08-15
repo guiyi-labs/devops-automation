@@ -203,3 +203,47 @@ class InspectionRule(Base, TimestampMixin):
     threshold = Column(String(100), nullable=False)   # "90" / "nginx" / "80"
     severity = Column(String(20), nullable=False, default='warning')  # warning / critical
     enabled = Column(SmallInteger, nullable=False, default=1)
+
+
+class DeployRelease(Base, TimestampMixin):
+    """受控部署发布记录：一次 DeployProject 拉取/构建/部署/回滚的完整证据。"""
+
+    __tablename__ = 'deploy_release'
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey('deploy_project.id'), nullable=False, index=True)
+    # 类型: preview(预览) | deploy(部署) | rollback(回滚)
+    release_type = Column(String(20), nullable=False, default='deploy')
+    # 状态: requested | running | succeeded | failed | rollback_succeeded | rollback_failed
+    status = Column(String(30), nullable=False, default='requested')
+    git_ref = Column(String(100))
+    image = Column(String(255))                  # 构建出的镜像名
+    image_digest = Column(String(255))           # 镜像 digest
+    version = Column(String(50))
+    exec_user = Column(String(50), nullable=False)
+    result = Column(Text)                        # JSON：命令输出/回滚点/错误
+    create_time = Column(DateTime, nullable=False, server_default=func.now())
+    update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class BackupRecord(Base, TimestampMixin):
+    """MySQL 逻辑备份/恢复记录：备份路径、校验、恢复点与保留策略。"""
+
+    __tablename__ = 'backup_record'
+    id = Column(Integer, primary_key=True, index=True)
+    # 类型: backup | restore
+    op_type = Column(String(20), nullable=False, default='backup')
+    # 状态: running | succeeded | failed | verifying
+    status = Column(String(20), nullable=False, default='running')
+    file_path = Column(String(255))              # 备份文件（脱敏相对路径或占位）
+    file_size_bytes = Column(Integer)            # 备份字节数
+    mysql_dump_path = Column(String(255))        # mysqldump 可执行路径或 "embedded"
+    backup_engine = Column(String(50), nullable=False, default='mysql_dump')
+    database = Column(String(50))
+    # 校验：sha256 / checksum / size_ok / row_count
+    checksum = Column(String(64))
+    checksum_ok = Column(SmallInteger, nullable=False, default=0)
+    validation = Column(Text)                    # JSON：一致性校验结果
+    exec_user = Column(String(50), nullable=False)
+    result = Column(Text)                        # JSON：耗时/错误/恢复目标
+    create_time = Column(DateTime, nullable=False, server_default=func.now())
+    update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

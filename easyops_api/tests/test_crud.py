@@ -84,23 +84,20 @@ def test_cron_create_forbidden_for_viewer(client, viewer_token):
 
 
 # ---------- 部署项目 ----------
-def test_deploy_list_create_run(client, admin_token, viewer_token):
+def test_deploy_list_create(client, admin_token, viewer_token):
     h_admin, h_viewer = _auth(admin_token), _auth(viewer_token)
     assert client.get('/api/v1/deploy/projects', headers=h_viewer).status_code == 200
     created = client.post('/api/v1/deploy/projects', json={
         'project_name': 'demo-app', 'git_url': 'https://github.com/demo/app.git', 'env_type': 'prod',
     }, headers=h_admin)
     assert created.status_code == 200
-    run = client.post(f"/api/v1/deploy/projects/{created.json()['id']}/run", headers=h_admin)
-    assert run.status_code == 200
-    assert run.json()['status'] == 'submitted'
+    assert created.json()['id'] > 0
 
 
-def test_deploy_run_forbidden_for_viewer(client, admin_token, viewer_token):
-    created = client.post('/api/v1/deploy/projects', json={
+def test_deploy_create_forbidden_for_viewer(client, admin_token, viewer_token):
+    resp = client.post('/api/v1/deploy/projects', json={
         'project_name': 'a', 'git_url': 'https://github.com/a/b.git', 'env_type': 'dev',
-    }, headers=_auth(admin_token)).json()
-    resp = client.post(f"/api/v1/deploy/projects/{created['id']}/run", headers=_auth(viewer_token))
+    }, headers=_auth(viewer_token))
     assert resp.status_code == 403
 
 

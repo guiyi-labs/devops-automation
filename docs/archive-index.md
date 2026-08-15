@@ -24,6 +24,7 @@
 | `docs/changes/2026-08-14-e2-test-health.md` | E2 测试与运行基线 |
 | `docs/changes/2026-08-14-e3-controlled-batch-exec.md` | E3 受控批量运维 |
 | `docs/changes/2026-08-15-e4-host-inspection.md` | E4 主机巡检与监控 |
+| `docs/changes/2026-08-15-e5-deploy-backup.md` | E5 部署、备份与恢复 |
 
 ## 3. 当前关键配置
 

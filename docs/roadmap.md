@@ -13,7 +13,7 @@
 | E2 | 测试与运行基线（P0） | ✅ 已完成（PR #2） |
 | E3 | 受控批量运维（P0） | ✅ 已完成（本分支 PR） |
 | E4 | Linux 主机巡检与监控（P1） | ✅ 已完成（本分支 PR，真实 VM 演练待 E6 前补） |
-| E5 | 部署、备份与恢复（P1） | ⏳ 待开始 |
+| E5 | 部署、备份与恢复（P1） | ✅ 已完成（本分支 PR，真实演练待 E6 前补） |
 | E6 | 交付与展示（P1） | ⏳ 待开始 |
 
 ## E1 安全与配置基线（目标 2–4 天）
@@ -111,10 +111,29 @@
 - [x] 全量 pytest 100 项通过（新增 23）；覆盖率全局 86% / 安全模块 91%；
       Ruff、pip-audit、npm audit、compose config、前端生产构建全绿
 
-## E5 部署、备份与恢复（待开始）
+## E5 部署、备份与恢复（已完成）
 
-- [ ] Docker Compose 受控部署计划（预览/部署/健康检查/回滚）
-- [ ] MySQL 备份校验与空环境恢复演练
+> 目标：把占位「部署/备份」改造成受控、可回滚、可恢复且带证据的链路。实施细节见
+> `docs/changes/2026-08-15-e5-deploy-backup.md`。
+> 说明：本阶段验收为 mock/单测 + 静态/构建证据；真实「部署→健康验证→回滚」与
+> 「备份→删除测试数据→全新恢复→一致性检查」演练在本地 docker compose 环境可行，
+> 归 E6 交付前补做并归档。
+
+- [x] 受控部署计划：预览计划（pull/build/up/healthcheck 固定步骤）+ 步骤白名单
+      （非法步骤立即中止）+ 回滚到最近有效发布（`services/deploy_service.py` +
+      `deploy_templates/compose-web/`）
+- [x] 不执行项目仓库任意脚本：构建/部署仅走模板目录固定步骤
+      （`DeployProject.build_script/deploy_script` 仅保留为记录字段）
+- [x] 发布记录（`DeployRelease`）：release_type/status/image/version/image_digest/
+      执行人/结果 JSON；Alembic `0004` 迁移
+- [x] MySQL 逻辑备份与校验：engine.dump → gzip/sha256/一致性检查 → checksum_ok
+      （`services/backup_service.py` + `BackupRecord`）
+- [x] 恢复：仅从校验通过的备份恢复 → 表级一致性校验（validation JSON）
+- [x] 保留策略：失败备份不覆盖最后一份有效备份
+- [x] 前端：`DeployProject.vue` 受控计划（预览/发布/回滚/发布记录）+
+      `BackupRestore.vue`（备份/恢复/校验详情，路由 `/backup`）
+- [x] 全量 pytest 121 项通过（新增 21）；覆盖率全局 86% / 安全模块 91% / E5 模块 83%；
+      Ruff、pip-audit、npm audit、compose config、前端生产构建全绿
 
 ## E6 交付与展示（待开始）
 
