@@ -14,8 +14,10 @@
   保持 nginx/grafana DNS 依赖；`secret.create=false` 默认引用预建 Secret（凭据不入
   Git）；镜像聚合字段（repository/webRepository/tag）；web/grafana NodePort 可配。
   README 增加「Helm 部署」章节与 Kustomize 取舍表；`docs/k8s-deployment.md` 增加
-  Helm 安装/覆盖示例。验证：`helm lint` 0 失败、`helm template` 渲染 23 资源、
-  渲染产物 kubeconform strict 23/23 Valid。
+  Helm 安装/覆盖示例；`docs/helm-validation.md` 验收记录。验证：`helm lint` 0 失败、
+  `helm template` 渲染 23 资源、渲染产物 kubeconform strict 23/23 Valid；kind 真机
+  `helm install` 成功 + web/prometheus Pod Running（PVC/有状态组件受宿主资源竞争限制，
+  如实标注）。
 
 - K8s 部署路径（附加选项，Compose 仍是默认）：完整 manifest（kustomize 组合）——
   MySQL 8.0 / Redis 6 / API / Celery / Web / Prometheus / Grafana 的 Deployment、
