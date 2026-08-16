@@ -7,6 +7,16 @@
 
 ### Added
 
+- Helm Chart 打包分发（`charts/easyops/`）：Chart.yaml + values.yaml +
+  values.schema.json + 13 模板 + `_helpers.tpl`（api/web/celery/mysql/redis/
+  prometheus/grafana/migrate-job/configmap/secret/namespace + 4 PVC），与现有
+  Kustomize 路径并行不破坏。关键设计：固定 Service 名（api/mysql/redis/prometheus）
+  保持 nginx/grafana DNS 依赖；`secret.create=false` 默认引用预建 Secret（凭据不入
+  Git）；镜像聚合字段（repository/webRepository/tag）；web/grafana NodePort 可配。
+  README 增加「Helm 部署」章节与 Kustomize 取舍表；`docs/k8s-deployment.md` 增加
+  Helm 安装/覆盖示例。验证：`helm lint` 0 失败、`helm template` 渲染 23 资源、
+  渲染产物 kubeconform strict 23/23 Valid。
+
 - K8s 部署路径（附加选项，Compose 仍是默认）：完整 manifest（kustomize 组合）——
   MySQL 8.0 / Redis 6 / API / Celery / Web / Prometheus / Grafana 的 Deployment、
   Service、PVC、一次性迁移 Job 与 Secret 模板（`k8s/`），Service 命名对齐 Compose

@@ -134,6 +134,25 @@ Prometheus/Grafana 的 Deployment、Service、PVC 与迁移 Job，部署步骤�
 [`aiops-platform`](https://github.com/guiyi-labs/aiops-platform)。K8s 清单不等同于完整的
 生产高可用清单；生产部署需补充 Secret 注入、Ingress、持久化存储类、资源限制与网络策略。
 
+### Helm 部署（专业级打包分发）
+
+除 Kustomize 外，EasyOps 还提供 [Helm Chart](charts/easyops/)（`helm install` 一键部署，
+`values.yaml` 覆盖全部配置——镜像版本、副本数、资源配额、Service/NodePort 类型、Secret
+注入方式）。与 Kustomize 的取舍：
+
+| 维度 | Kustomize（默认便利路径） | Helm（专业级打包） |
+|------|---------------------------|---------------------|
+| 使用 | `kubectl apply -k k8s/`，零额外依赖 | 需 `helm` CLI；`helm install easyops ./charts/easyops` |
+| 可配置 | 改 yaml / overlay 补丁 | values 覆盖 + `--set`，不改模板 |
+| 环境差异 | overlay 目录 | values 文件（dev/prod 覆盖） |
+| 校验 | kubeconform（strict） | `helm lint` + `helm template` + kubeconform 渲染产物 |
+| 分发 | git 目录 | `helm package` 出 tgz（可发布到 Chart 仓库） |
+
+两者共享同一语义层（固定 Service 名 `api`/`mysql`/`redis`/`prometheus`、探针、PVC、
+镜像），不互相替代。默认 `secret.create=false` 引用预建 Secret（凭据不入 Git，对齐
+SECURITY.md）。安装与验证步骤见 [docs/k8s-deployment.md](docs/k8s-deployment.md) 的
+Helm 小节。
+
 ## CI 与本地验证
 
 GitHub Actions 包含：

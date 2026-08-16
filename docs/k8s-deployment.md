@@ -124,6 +124,79 @@ EasyOps 的数据库依赖**全部通过环境变量注入**（`config.py` 的 `
 **结论**：Compose 是日常默认；K8s 是展示云原生可部署性的附加选项，二者共享同一镜像与
 配置模型，业务逻辑零改动。
 
+## Helm 部署（专业级打包分发）
+
+除 Kustomize 外，EasyOps 提供 [Helm Chart](../charts/easyops/)。二者共享同一语义层
+（固定 Service 名 `api`/`mysql`/`redis`/`prometheus`、探针、PVC、镜像），可并行使用；
+Kustomize 仍为默认便利路径。
+
+### 安装
+
+```bash
+# 1. 构建镜像并加载/推送（同 Kustomize 步骤 1）
+docker compose build api web
+kind load docker-image devops-automation-api:latest devops-automation-web:latest
+
+# 2. 预建 Secret（凭据不入 Git；Chart 默认 secret.create=false）
+kubectl create ns easyops 2>/dev/null || true
+kubectl -n easyops create secret generic easyops-secrets \
+  --from-literal=MYSQL_PASSWORD='<强密码>' \
+  --from-literal=SECRET_KEY='<随机 32+ 字符串>' \
+  --from-literal=CREDENTIAL_ENCRYPTION_KEY='<随机 32+ 字符串>' \
+  --from-literal=INITIAL_ADMIN_PASSWORD='<管理员初始密码>'
+
+# 3. 安装（可加 --set 覆盖 values；示例值见 charts/easyops/values.yaml）
+helm install easyops ./charts/easyops --namespace easyops
+```
+
+本地演示若想一条命令生成演示凭据，可用 `--set secret.create=true`（值写进 Secret 对象，
+不入 Chart 文件仓库——仍建议仅本地）。
+
+### 覆盖配置示例（values override）
+
+```yaml
+# values-prod.yaml：生产覆盖示例
+image:
+  tag: 0.1.0
+  pullPolicy: Always
+replicaCount:
+  api: 3
+  web: 2
+  celery: 2
+config:
+  appEnv: production
+  deployExecutionMode: mock   # 未配置 K8s→SSH 出站前保持 mock
+service:
+  web: { type: LoadBalancer }
+  grafana: { type: ClusterIP }
+persistence:
+  mysql: { size: 50Gi, storageClass: ssd }
+resources:
+  api: { requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 512Mi} }
+```
+
+```bash
+helm upgrade easyops ./charts/easyops -f values-prod.yaml --namespace easyops
+```
+
+### 与 Kustomize 的取舍
+
+| 维度 | Kustomize（默认便利路径） | Helm（专业级打包） |
+|------|---------------------------|---------------------|
+| 使用 | `kubectl apply -k k8s/`，零额外依赖 | 需 `helm` CLI；`helm install` |
+| 可配置 | 改 yaml / overlay 补丁 | values 覆盖 + `--set`，不改模板 |
+| 环境差异 | overlay 目录 | values 文件（dev/prod 覆盖） |
+| 校验 | kubeconform（strict） | `helm lint` + `helm template` + kubeconform 渲染产物 |
+| 分发 | git 目录 | `helm package` 出 tgz（可发布到 Chart 仓库） |
+
+### Chart 校验（本地）
+
+```bash
+helm lint charts/easyops           # 语法/规范
+helm template easyops charts/easyops > /tmp/helm-rendered.yaml   # 渲染检查
+kubeconform -strict -summary /tmp/helm-rendered.yaml             # 渲染产物 schema 校验
+```
+
 ## 验证边界（如实说明）
 
 - **已做（静态）**：`kubectl kustomize k8s/` 渲染 23 资源；`kubeconform -strict` 全部 Valid；
