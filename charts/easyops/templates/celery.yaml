@@ -1,0 +1,54 @@
+# EasyOps Celery Worker：与 API 共用镜像与迁移，消费 Redis broker。
+# 与 api 共享 backups PVC（同 RWO 多副本约束，见 api.yaml 注释；跨节点需 RWX）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: easyops-celery
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery
+spec:
+  replicas: {{ .Values.replicaCount.celery }}
+  selector:
+    matchLabels:
+      {{- include "easyops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: celery
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: celery
+    spec:
+      containers:
+        - name: celery
+          image: {{ include "easyops.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c", "alembic upgrade head && celery -A tasks.celery_app.celery worker -l INFO --concurrency={{ .Values.config.batchConcurrency }}"]
+          envFrom:
+            - configMapRef: { name: easyops-config }
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: MYSQL_PASSWORD }
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: SECRET_KEY }
+            - name: CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: CREDENTIAL_ENCRYPTION_KEY }
+            - name: BATCH_CONCURRENCY
+              value: {{ .Values.config.batchConcurrency | quote }}
+            - name: EXEC_TASK_HARD_TIMEOUT
+              value: {{ .Values.config.execTaskHardTimeout | quote }}
+          volumeMounts:
+            - name: backups
+              mountPath: {{ .Values.config.backupStorageDir }}
+          {{- with .Values.resources.celery }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: backups

@@ -1,0 +1,154 @@
+# Grafana：Deployment + Service（固定名 grafana，NodePort 默认 30030）+
+# provisioning/dashboard ConfigMap（与仓库根 grafana/ 目录保持一致，同 Kustomize 约束）
+# + PVC（grafana-data）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: false
+  easyops.yml: |
+    apiVersion: 1
+    providers:
+      - name: easyops
+        orgId: 1
+        folder: EasyOps
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+# dashboard JSON —— 单一事实源为 grafana/dashboards/easyops-overview.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  easyops-overview.json: |
+    {"title":"EasyOps 概览","uid":"easyops-overview","tags":["easyops","devops"],"timezone":"browser","editable":true,"schemaVersion":39,"version":1,"refresh":"30s","time":{"from":"now-1h","to":"now"},"panels":[{"id":1,"type":"stat","title":"请求速率","gridPos":{"h":4,"w":6,"x":0,"y":0},"targets":[{"expr":"sum(rate(http_requests_total[5m]))","legendFormat":"req/s"}]},{"id":2,"type":"stat","title":"P95 延迟","gridPos":{"h":4,"w":6,"x":6,"y":0},"targets":[{"expr":"histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))"}],"fieldConfig":{"defaults":{"unit":"s"}}},{"id":3,"type":"stat","title":"队列深度","gridPos":{"h":4,"w":6,"x":12,"y":0},"targets":[{"expr":"easyops_queue_depth{queue=\"celery\"}","legendFormat":"depth"}]},{"id":4,"type":"stat","title":"任务成功/失败","gridPos":{"h":4,"w":6,"x":18,"y":0},"targets":[{"expr":"sum(increase(easyops_exec_tasks_total{status=\"succeeded\"}[1h]))","legendFormat":"成功"},{"expr":"sum(increase(easyops_exec_tasks_total{status=\"failed\"}[1h]))","legendFormat":"失败"}]},{"id":5,"type":"timeseries","title":"请求延迟（秒）","gridPos":{"h":8,"w":12,"x":0,"y":4},"targets":[{"expr":"histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"expr":"histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"},{"expr":"histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p99"}]},{"id":6,"type":"timeseries","title":"批量执行耗时（秒）","gridPos":{"h":8,"w":12,"x":12,"y":4},"targets":[{"expr":"histogram_quantile(0.5, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"expr":"histogram_quantile(0.95, sum(rate(easyops_exec_task_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},{"id":7,"type":"timeseries","title":"任务成功率","gridPos":{"h":8,"w":12,"x":0,"y":12},"targets":[{"expr":"sum(rate(easyops_exec_tasks_total{status=\"succeeded\"}[5m])) / (sum(rate(easyops_exec_tasks_total[5m])) + 1)","legendFormat":"成功率"}],"fieldConfig":{"defaults":{"unit":"percentunit","max":1}}},{"id":8,"type":"timeseries","title":"巡检健康分布","gridPos":{"h":8,"w":12,"x":12,"y":12},"targets":[{"expr":"easyops_host_health{status=\"healthy\"}","legendFormat":"healthy"},{"expr":"easyops_host_health{status=\"warning\"}","legendFormat":"warning"},{"expr":"easyops_host_health{status=\"critical\"}","legendFormat":"critical"},{"expr":"easyops_host_health{status=\"unknown\"}","legendFormat":"unknown"}]}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  replicas: {{ .Values.replicaCount.grafana }}
+  selector:
+    matchLabels:
+      {{- include "easyops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: grafana
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: docker.m.daocloud.io/grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: "Viewer"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /var/lib/grafana/dashboards/easyops-overview.json
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.resources.grafana }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-data
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  type: {{ .Values.service.grafana.type }}
+  selector:
+    {{- include "easyops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+  ports:
+    - name: http
+      port: {{ .Values.service.grafana.port }}
+      targetPort: http
+      {{- if and (eq .Values.service.grafana.type "NodePort") .Values.service.grafana.nodePort }}
+      nodePort: {{ .Values.service.grafana.nodePort }}
+      {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.persistence.grafana.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.grafana.size }}

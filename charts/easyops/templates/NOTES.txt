@@ -1,0 +1,15 @@
+EasyOps 已安装到 {{ include "easyops.namespace" . }}。
+
+验证命令：
+  kubectl -n {{ include "easyops.namespace" . }} rollout status deployment/easyops-api --timeout=180s
+  kubectl -n {{ include "easyops.namespace" . }} get pods
+
+API 健康检查：
+  kubectl -n {{ include "easyops.namespace" . }} port-forward svc/api 8000:8000 &
+  curl -s http://127.0.0.1:8000/health/live
+
+Web（NodePort {{ .Values.service.web.nodePort }}）：
+  kubectl -n {{ include "easyops.namespace" . }} port-forward svc/web 8080:80 &
+  open http://localhost:8080
+
+BONUS：许可证/安全信息见仓库 SECURITY.md；部署取舍见 docs/k8s-deployment.md。

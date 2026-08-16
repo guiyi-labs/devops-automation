@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schema/easyops-values.schema.json",
+  "title": "EasyOps Helm Chart values",
+  "type": "object",
+  "properties": {
+    "namespace": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean", "default": true },
+        "name": { "type": "string", "default": "easyops" }
+      }
+    },
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "repository": { "type": "string" },
+        "webRepository": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "replicaCount": {
+      "type": "object",
+      "properties": {
+        "api": { "type": "integer", "minimum": 1 },
+        "web": { "type": "integer", "minimum": 1 },
+        "celery": { "type": "integer", "minimum": 1 },
+        "mysql": { "type": "integer", "minimum": 1 },
+        "redis": { "type": "integer", "minimum": 1 },
+        "prometheus": { "type": "integer", "minimum": 1 },
+        "grafana": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "mysql": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string" }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "appEnv": { "type": "string" },
+        "mysqlHost": { "type": "string" },
+        "mysqlPort": { "type": "string" },
+        "mysqlUser": { "type": "string" },
+        "mysqlDb": { "type": "string" },
+        "redisHost": { "type": "string" },
+        "redisPort": { "type": "string" },
+        "celeryBrokerUrl": { "type": "string" },
+        "celeryResultBackend": { "type": "string" },
+        "sshAllowUnverifiedHostKey": { "type": "string" },
+        "deployExecutionMode": { "type": "string", "enum": ["mock", "real"] },
+        "backupExecutionMode": { "type": "string", "enum": ["mock", "real"] },
+        "backupStorageDir": { "type": "string" },
+        "backupRetentionCount": { "type": "string" },
+        "corsOrigins": { "type": "string" },
+        "batchConcurrency": { "type": "string" },
+        "execTaskHardTimeout": { "type": "string" }
+      }
+    },
+    "secret": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean", "default": false },
+        "existingSecretName": { "type": "string" },
+        "mysqlPassword": { "type": "string" },
+        "secretKey": { "type": "string" },
+        "credentialEncryptionKey": { "type": "string" },
+        "initialAdminPassword": { "type": "string" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" }
+          }
+        },
+        "web": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" },
+            "nodePort": { "type": "integer", "minimum": 30000, "maximum": 32767 }
+          }
+        },
+        "grafana": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" },
+            "nodePort": { "type": "integer", "minimum": 30000, "maximum": 32767 }
+          }
+        },
+        "mysql": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" }
+          }
+        },
+        "redis": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" }
+          }
+        },
+        "prometheus": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "mysql": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": ["string", "null"] }
+          }
+        },
+        "redis": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": ["string", "null"] }
+          }
+        },
+        "backups": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": ["string", "null"] }
+          }
+        },
+        "grafana": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "probes": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" },
+            "initialDelaySeconds": { "type": "integer" },
+            "periodSeconds": { "type": "integer" }
+          }
+        },
+        "web": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" },
+            "initialDelaySeconds": { "type": "integer" },
+            "periodSeconds": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "api": { "type": "object" },
+        "celery": { "type": "object" },
+        "web": { "type": "object" },
+        "mysql": { "type": "object" },
+        "redis": { "type": "object" },
+        "prometheus": { "type": "object" },
+        "grafana": { "type": "object" }
+      }
+    }
+  }
+}

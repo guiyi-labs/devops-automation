@@ -1,0 +1,67 @@
+# EasyOps Web（Nginx 静态前端 + /api 反向代理）。
+# Service 固定名 web（NodePort 默认 30080）；nginx.conf proxy_pass http://api:8000
+# 依赖 Service 名 api（api.yaml 已定义）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: easyops-web
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.replicaCount.web }}
+  selector:
+    matchLabels:
+      {{- include "easyops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      containers:
+        - name: web
+          image: {{ include "easyops.webImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+              name: http
+          readinessProbe:
+            httpGet: { path: {{ .Values.probes.web.path }}, port: {{ .Values.probes.web.port }} }
+            initialDelaySeconds: {{ .Values.probes.web.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.web.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet: { path: {{ .Values.probes.web.path }}, port: {{ .Values.probes.web.port }} }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.resources.web }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.service.web.type }}
+  selector:
+    {{- include "easyops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: {{ .Values.service.web.port }}
+      targetPort: http
+      {{- if and (eq .Values.service.web.type "NodePort") .Values.service.web.nodePort }}
+      nodePort: {{ .Values.service.web.nodePort }}
+      {{- end }}

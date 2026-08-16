@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: easyops-config
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  # MySQL（固定 Service 名 mysql，见 _helpers.tpl 注释）
+  MYSQL_HOST: {{ .Values.config.mysqlHost | quote }}
+  MYSQL_PORT: {{ .Values.config.mysqlPort | quote }}
+  MYSQL_USER: {{ .Values.config.mysqlUser | quote }}
+  MYSQL_DB: {{ .Values.config.mysqlDb | quote }}
+  # Redis / Celery Broker（固定 Service 名 redis）
+  REDIS_HOST: {{ .Values.config.redisHost | quote }}
+  REDIS_PORT: {{ .Values.config.redisPort | quote }}
+  CELERY_BROKER_URL: {{ .Values.config.celeryBrokerUrl | quote }}
+  CELERY_RESULT_BACKEND: {{ .Values.config.celeryResultBackend | quote }}
+  # SSH host-key 校验：默认严格。K8s 网络可访问目标时才开 real 部署
+  SSH_ALLOW_UNVERIFIED_HOST_KEY: {{ .Values.config.sshAllowUnverifiedHostKey | quote }}
+  # 部署执行模式：K8s 下 SSH 到外部主机默认 mock，避免未配置网络时的误执行
+  DEPLOY_EXECUTION_MODE: {{ .Values.config.deployExecutionMode | quote }}
+  # 备份执行模式：mysql 客户端在容器内可直达集群内 MySQL，real 备份可用
+  BACKUP_EXECUTION_MODE: {{ .Values.config.backupExecutionMode | quote }}
+  BACKUP_STORAGE_DIR: {{ .Values.config.backupStorageDir | quote }}
+  BACKUP_RETENTION_COUNT: {{ .Values.config.backupRetentionCount | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  BATCH_CONCURRENCY: {{ .Values.config.batchConcurrency | quote }}
+  EXEC_TASK_HARD_TIMEOUT: {{ .Values.config.execTaskHardTimeout | quote }}

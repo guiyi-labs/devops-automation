@@ -1,0 +1,19 @@
+apiVersion: v2
+name: easyops
+description: EasyOps - Linux 主机安全批量运维平台（系统运维平台自身可作为 K8s 工作负载部署）。
+  Compose 与 Kustomize 是并行部署路径；Helm Chart 提供专业级打包分发。
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - devops
+  - operations
+  - ssh
+  - inspection
+  - backup
+maintainers:
+  - name: Guyi Labs
+    email: 277616126+guiyi-labs@users.noreply.github.com
+sources:
+  - https://github.com/guiyi-labs/devops-automation
+# 无子依赖：mysql/redis 使用官方镜像，由模板直接渲染，不打包子 Chart。

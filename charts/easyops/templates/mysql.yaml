@@ -1,0 +1,102 @@
+# MySQL 8.0（对齐 Kustomize：多架构镜像，本机已验证）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  replicas: {{ .Values.replicaCount.mysql }}
+  selector:
+    matchLabels:
+      {{- include "easyops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mysql
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: {{ printf "docker.m.daocloud.io/library/mysql:%s" .Values.mysql.tag }}
+          imagePullPolicy: {{ .Values.mysql.pullPolicy }}
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "easyops.secretName" . }}
+                  key: MYSQL_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: easyops-config
+                  key: MYSQL_DB
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD >/dev/null 2>&1"]
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.resources.mysql }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  type: {{ .Values.service.mysql.type }}
+  selector:
+    {{- include "easyops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+  ports:
+    - name: mysql
+      port: {{ .Values.service.mysql.port }}
+      targetPort: mysql
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.persistence.mysql.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.mysql.size }}

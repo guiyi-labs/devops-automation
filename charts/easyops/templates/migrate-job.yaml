@@ -1,0 +1,31 @@
+# 一次性 Alembic 迁移 Job（幂等）。
+# api/celery 启动命令已自带 alembic upgrade head；此 Job 用于显式先行迁移。
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: easyops-migrate
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        job: easyops-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ include "easyops.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef: { name: easyops-config }
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: MYSQL_PASSWORD }

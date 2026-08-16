@@ -1,0 +1,130 @@
+# EasyOps Helm Chart 默认值。
+# 敏感凭据默认不写入本文件（secret.create=false 时引用预建 Secret，
+# 对齐仓库 SECURITY.md「凭据不入 Git」约束）。真实验收通过 --set 或预建 Secret 注入。
+
+# 命名空间：已有集群需复用命名空间时改为 false + namespace 值自己管理
+namespace:
+  create: true
+  name: easyops
+
+nameOverride: ""
+fullnameOverride: ""
+
+# 镜像聚合字段（方案 A）：api/celery 共用 repository，web 独立 webRepository，
+# tag 统一（平台整体版本心智）。可读性不足时可切换为分组件 image 子块。
+image:
+  repository: devops-automation-api
+  webRepository: devops-automation-web
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount:
+  api: 2
+  web: 2
+  celery: 1
+  mysql: 1
+  redis: 1
+  prometheus: 1
+  grafana: 1
+
+# 第三方镜像（与 Kustomize 对齐：mysql:8.0 多架构、redis:6）
+mysql:
+  tag: "8.0"
+  pullPolicy: IfNotPresent
+redis:
+  tag: "6"
+  pullPolicy: IfNotPresent
+
+# 非敏感环境配置（对齐 k8s/config.yaml）
+config:
+  appEnv: development
+  mysqlHost: mysql
+  mysqlPort: "3306"
+  mysqlUser: root
+  mysqlDb: easyops
+  redisHost: redis
+  redisPort: "6379"
+  celeryBrokerUrl: "redis://redis:6379/0"
+  celeryResultBackend: "redis://redis:6379/0"
+  sshAllowUnverifiedHostKey: "false"
+  deployExecutionMode: mock
+  backupExecutionMode: real
+  backupStorageDir: /var/lib/easyops/backups
+  backupRetentionCount: "7"
+  corsOrigins: "http://localhost:8080,http://localhost:30080"
+  batchConcurrency: "8"
+  execTaskHardTimeout: "90"
+
+# 敏感凭据。create=false（默认）：引用预建 Secret（existingSecretName），
+# 用 kubectl create secret generic 或 --set 注入；create=true 仅限本地演示。
+secret:
+  create: false
+  existingSecretName: easyops-secrets
+  mysqlPassword: ""
+  secretKey: ""
+  credentialEncryptionKey: ""
+  initialAdminPassword: ""
+
+# 服务暴露方式（web/grafana 默认 NodePort 便于 kind 验收；生产可换 Ingress）
+service:
+  api:
+    type: ClusterIP
+    port: 8000
+  web:
+    type: NodePort
+    port: 80
+    nodePort: 30080
+  celery: {}
+  mysql:
+    type: ClusterIP
+    port: 3306
+  redis:
+    type: ClusterIP
+    port: 6379
+  prometheus:
+    type: ClusterIP
+    port: 9090
+  grafana:
+    type: NodePort
+    port: 3000
+    nodePort: 30030
+
+# 持久化（storageClass 空 = 集群默认；kind 用 rancher.io/local-path）
+persistence:
+  mysql:
+    size: 10Gi
+    storageClass: ""
+  redis:
+    size: 2Gi
+    storageClass: ""
+  backups:
+    size: 5Gi
+    storageClass: ""
+  grafana:
+    size: 1Gi
+    storageClass: ""
+
+# 探针参数（与 Kustomize/Compose healthcheck 语义对齐）
+probes:
+  api:
+    path: /health/live
+    port: 8000
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  web:
+    path: /
+    port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# 资源配额（默认空 = 不设置；生产建议填写）
+resources:
+  api: {}
+  celery: {}
+  web: {}
+  mysql: {}
+  redis: {}
+  prometheus: {}
+  grafana: {}
+  # 示例：
+  # api: { requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 512Mi} }

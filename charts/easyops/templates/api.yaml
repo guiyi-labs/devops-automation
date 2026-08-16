@@ -1,0 +1,106 @@
+# EasyOps API：Deployment（多副本）+ Service（固定名 api，nginx proxy_pass 依赖）+ 备份卷。
+# 启动前执行 Alembic 迁移（幂等，与 Compose/Kustomize 对齐）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: easyops-api
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.replicaCount.api }}
+  selector:
+    matchLabels:
+      {{- include "easyops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "easyops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: {{ include "easyops.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
+          envFrom:
+            - configMapRef: { name: easyops-config }
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: MYSQL_PASSWORD }
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: SECRET_KEY }
+            - name: CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: CREDENTIAL_ENCRYPTION_KEY }
+            - name: INITIAL_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ include "easyops.secretName" . }}, key: INITIAL_ADMIN_PASSWORD }
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: backups
+              mountPath: {{ .Values.config.backupStorageDir }}
+          readinessProbe:
+            httpGet: { path: {{ .Values.probes.api.path }}, port: {{ .Values.probes.api.port }} }
+            initialDelaySeconds: {{ .Values.probes.api.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.api.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: {{ .Values.probes.api.path }}, port: {{ .Values.probes.api.port }} }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.resources.api }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: backups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.service.api.type }}
+  selector:
+    {{- include "easyops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: {{ .Values.service.api.port }}
+      targetPort: http
+---
+# api/celery 共享备份持久卷（Kustomize backup_data / Compose backup_data 的对应物）。
+# 注意：RWO 在多节点集群下仅单节点可挂；生产多节点请改用 ReadWriteMany 存储类
+# 或为 celery 拆分独立 PVC（与 Kustomize 相同约束说明）。
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backups
+  namespace: {{ include "easyops.namespace" . }}
+  labels:
+    {{- include "easyops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backups
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.persistence.backups.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backups.size }}
