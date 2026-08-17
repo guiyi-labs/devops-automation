@@ -1,6 +1,6 @@
 -r requirements.txt
 setuptools>=83.0.0
-alembic==1.13.3
+alembic==1.19.1
 pytest==9.1.1
 pytest-cov==6.2.0
 httpx==0.28.1
